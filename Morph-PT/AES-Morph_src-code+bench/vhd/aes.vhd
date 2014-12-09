@@ -57,6 +57,7 @@ architecture arch of aes_core is
   		enable_shuffle, realign : in T_ENABLE; 
 			set_new_mask : in T_ENABLE; 
 			enable_mc  : in T_ENABLE;
+			enable_mc_in : in T_ENABLE;
   		enable_key : in T_ENABLE;
 			col_reloc : in std_logic_vector( 1 downto 0 ); 
 			dyn_sbmap : in std_logic_vector( 2 downto 0 ); 
@@ -85,7 +86,7 @@ architecture arch of aes_core is
 			enable_shuffle_cols, enable_shuffle_blks, 
       next_live_regs, 
 			realign, freeze_bus,
-			enable_mc, enable_key : out T_ENABLE;
+			enable_mc, enable_mc_in, enable_key : out T_ENABLE;
 			-- Key management 
   		save_key, advance_key, advance_rcon, rewind_key : out T_ENABLE;
 			-- Global nets	
@@ -208,7 +209,7 @@ architecture arch of aes_core is
 	-- Control signals
 	signal c_soft_rst : std_logic;
 	signal c_ctrl_dec : T_ENCDEC;
-  signal c_enable_H_inputs, c_ctrl_key, c_ctrl_mc, s_realign, s_freeze_bus,
+  signal c_enable_H_inputs, c_ctrl_key, c_ctrl_mc, c_ctrl_mc_in, s_realign, s_freeze_bus,
 				 c_next_live_regs, c_shuffle_cols,  c_shuffle_blks, c_get_new_mask : T_ENABLE; 
 	signal c_save_key, c_advance_key, c_advance_rcon, c_rewind_key : T_ENABLE;
 	signal c_blk_out_index : std_logic_vector( LOG2_NUM_OF_ROUNDS-1 downto 0 );
@@ -282,6 +283,7 @@ begin
 			realign => s_realign,
 			freeze_bus => s_freeze_bus,
 			enable_mc => c_ctrl_mc, 
+			enable_mc_in => c_ctrl_mc_in;
 
 			enable_key => c_ctrl_key,
 			save_key => c_save_key,
@@ -360,6 +362,7 @@ begin
 				realign => s_realign,
 				set_new_mask => c_get_new_mask,
 				enable_mc  => c_ctrl_mc, 
+				enable_mc_in => c_ctrl_mc_in,
   			enable_key => c_ctrl_key, 
 				col_reloc => col_reloc( 2*I-1 downto 2*(I-1) ),
 				dyn_sbmap => dyn_sbmap,

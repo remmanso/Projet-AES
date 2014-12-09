@@ -14,6 +14,7 @@ entity round is port (
   enable_shuffle, realign : in T_ENABLE; 
 	set_new_mask : in T_ENABLE; 
 	enable_mc  : in T_ENABLE;
+  enable_mc_in : in T_ENABLE;
   enable_key : in T_ENABLE;
   -- rnd_seed_in  : in std_logic_vector( 13 downto 0 );
 	col_reloc : in std_logic_vector( BLK_IDX_SZ-1 downto 0 ); 
@@ -31,7 +32,7 @@ architecture arch of round is
       din : in std_logic_vector (G_SIZE-1 downto 0);
       dout : out std_logic_vector (G_SIZE-1 downto 0);
       clock, reset : in std_logic );
-    end component;
+  end component;
   component datacell port (
   	clock, reset : in std_logic; 
   	in_H, in_V : in std_logic_vector (7 downto 0);
@@ -43,7 +44,7 @@ architecture arch of round is
     ctrl_dec : T_ENCDEC;
     clock : in std_logic;
     b_out : out std_logic_vector (7 downto 0)   );
-    end component;
+  end component;
 --  component sbox_randomized is 
 --    generic (
 --      G_Field_0 : integer range 1 to 8 := 1;

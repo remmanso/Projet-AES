@@ -13,7 +13,7 @@ entity Control is port (
 	-- Data path management
 	enable_H_inputs, enable_shuffle_cols, enable_shuffle_blks, 
   next_live_regs,
-	realign, freeze_bus, enable_mc, enable_key : out T_ENABLE;
+	realign, freeze_bus, enable_mc, s_enable_mc_in, enable_key : out T_ENABLE;
 	-- Key management 
   save_key, advance_key, advance_rcon, rewind_key : out T_ENABLE;
 	-- Global nets	
@@ -40,7 +40,7 @@ architecture arch of Control is
 	signal enc_sub_state : integer range 0 to 7;
 	signal round : integer range 0 to 14;
 	signal s_ready : T_READY;
-	signal s_first_H_xfer, s_enable_H_inputs, s_enable_mc, s_enable_key : T_ENABLE;
+	signal s_first_H_xfer, s_enable_H_inputs, s_enable_mc, s_enable_mc_in, s_enable_key : T_ENABLE;
 	signal s_enable_shuffle_cols, s_enable_shuffle_blks, s_realign, s_freeze_bus : T_ENABLE;
 	signal s_save_key, s_advance_key, s_advance_rcon, s_rewind_key, s_data_out_ok : T_ENABLE;
 	signal s_next_live_regs, s_enable_check : T_ENABLE;
@@ -158,6 +158,8 @@ begin
   s_realign <= C_ENABLED when ( state=OUTPUT ) else C_DISABLED;
 	s_freeze_bus <= C_ENABLED when ( ( state=ENC_HORIZ and round=0 ) ) else C_DISABLED; 
 	s_enable_mc <= C_ENABLED when ( state=ENC_HORIZ and round>0 and round<10 ) else C_DISABLED;
+	s_enable_mc_in <= C_ENABLED when ( state = ENC_VERT and round > 0 and round < 10 and enc_sub_state = 4)
+								else C_DISABLED;
 	s_enable_key <= C_ENABLED when ( state=ENC_HORIZ ) else C_DISABLED;
 
 	s_save_key <= C_ENABLED when ( state=LOADING_KEY ) else C_DISABLED; 
@@ -177,6 +179,7 @@ begin
 	realign <= s_realign;
 	freeze_bus <= s_freeze_bus;
 	enable_mc <= s_enable_mc;
+	s_enable_mc_in <= s_enable_mc_in;
 	enable_key <= s_enable_key;
 
   save_key <= s_save_key;
