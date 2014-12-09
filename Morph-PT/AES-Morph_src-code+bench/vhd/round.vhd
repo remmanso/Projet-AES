@@ -105,6 +105,7 @@ architecture arch of round is
 	signal s_blk_idx_out : std_logic_vector( BLK_IDX_SZ-1 downto 0 );
   signal s_aligned_data : std_logic_vector( MASK_HI downto 0 );
 	signal s_mcoff_data : std_logic_vector( CLID_HI downto 0 );
+  signal s_mix_col_bus_in : std_logic_vector( BLID_HI downto 0 );
 begin
   ------------------------------------------------------------------------------
   ---- INPUT BLOCK -------------------------------------------------------------
@@ -309,6 +310,10 @@ begin
   ------------------------------------------------------------------------------
 
 	-- BLK_IDX_SZ + COL_IDX_SZ + MASK_SIZE + DATA_SIZE
+  s_mix_col_bus_in <= x"F00000000" & (sbox_reg_out &
+                      outB0 & outB1 & outB2 & outB3 &
+                      outC0 & outC1 & outC2 & outC3 &
+                      outD0 & outD1 & outD2 & outD3)
 	s_blk_idx_out <= blk_idx; 
 	s_aligned_data <= ( old_mask_reg & column_A & column_B & column_C & column_D ) 
 																	when ( wrd_idx( 7 downto 6 )="00" ) 
@@ -323,5 +328,6 @@ begin
 						 else ( wrd_idx( 7 downto 6 ) & new_mask_reg & mixcol_in );
 	data_out <= ( s_blk_idx_out & wrd_idx( 7 downto 6 ) & new_mask_reg & mixcol_out ) 
 												when ( enable_mc=C_ENABLED ) 
+         else s_mix_col_bus_in when (enable_mc_in)
 				 else ( s_blk_idx_out & s_mcoff_data );
   end arch;
