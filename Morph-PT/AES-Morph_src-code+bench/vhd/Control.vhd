@@ -13,7 +13,7 @@ entity Control is port (
 	-- Data path management
 	enable_H_inputs, enable_shuffle_cols, enable_shuffle_blks, 
   next_live_regs,
-	realign, freeze_bus, enable_mc, s_enable_mc_in, enable_key : out T_ENABLE;
+	realign, freeze_bus, enable_mc, enable_mc_in, enable_key : out T_ENABLE;
 	-- Key management 
   save_key, advance_key, advance_rcon, rewind_key : out T_ENABLE;
 	-- Global nets	
@@ -158,7 +158,7 @@ begin
   s_realign <= C_ENABLED when ( state=OUTPUT ) else C_DISABLED;
 	s_freeze_bus <= C_ENABLED when ( ( state=ENC_HORIZ and round=0 ) ) else C_DISABLED; 
 	s_enable_mc <= C_ENABLED when ( state=ENC_HORIZ and round>0 and round<10 ) else C_DISABLED;
-	s_enable_mc_in <= C_ENABLED when ( state = ENC_VERT and round > 0 and round < 10 and enc_sub_state = 4)
+	s_enable_mc_in <= C_ENABLED when ( state = ENC_VERT and round > 0 and round < 10 and enc_sub_state = 5)
 								else C_DISABLED;
 	s_enable_key <= C_ENABLED when ( state=ENC_HORIZ ) else C_DISABLED;
 
