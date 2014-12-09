@@ -158,7 +158,7 @@ begin
   s_realign <= C_ENABLED when ( state=OUTPUT ) else C_DISABLED;
 	s_freeze_bus <= C_ENABLED when ( ( state=ENC_HORIZ and round=0 ) ) else C_DISABLED; 
 	s_enable_mc <= C_ENABLED when ( state=ENC_HORIZ and round>0 and round<10 ) else C_DISABLED;
-	s_enable_mc_in <= C_ENABLED when ( state = ENC_VERT and round > 0 and round < 10 and enc_sub_state = 4)
+	s_enable_mc_in <= C_ENABLED when ( state = ENC_VERT and round > 0 and round < 10 and enc_sub_state = 5)
 								else C_DISABLED;
 	s_enable_key <= C_ENABLED when ( state=ENC_HORIZ ) else C_DISABLED;
 
@@ -179,7 +179,7 @@ begin
 	realign <= s_realign;
 	freeze_bus <= s_freeze_bus;
 	enable_mc <= s_enable_mc;
-	s_enable_mc_in <= s_enable_mc_in;
+	enable_mc_in <= s_enable_mc_in;
 	enable_key <= s_enable_key;
 
   save_key <= s_save_key;
