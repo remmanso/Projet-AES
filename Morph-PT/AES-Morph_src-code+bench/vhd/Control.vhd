@@ -13,7 +13,7 @@ entity Control is port (
 	-- Data path management
 	enable_H_inputs, enable_shuffle_cols, enable_shuffle_blks, 
   next_live_regs,
-	realign, freeze_bus, enable_mc, s_enable_mc_in, enable_key : out T_ENABLE;
+	realign, freeze_bus, enable_mc, enable_mc_in, enable_key : out T_ENABLE;
 	-- Key management 
   save_key, advance_key, advance_rcon, rewind_key : out T_ENABLE;
 	-- Global nets	

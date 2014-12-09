@@ -283,7 +283,7 @@ begin
 			realign => s_realign,
 			freeze_bus => s_freeze_bus,
 			enable_mc => c_ctrl_mc, 
-			enable_mc_in => c_ctrl_mc_in;
+			enable_mc_in => c_ctrl_mc_in,
 
 			enable_key => c_ctrl_key,
 			save_key => c_save_key,
