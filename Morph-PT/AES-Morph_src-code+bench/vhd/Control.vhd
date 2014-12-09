@@ -179,7 +179,7 @@ begin
 	realign <= s_realign;
 	freeze_bus <= s_freeze_bus;
 	enable_mc <= s_enable_mc;
-	s_enable_mc_in <= s_enable_mc_in;
+	enable_mc_in <= s_enable_mc_in;
 	enable_key <= s_enable_key;
 
   save_key <= s_save_key;
