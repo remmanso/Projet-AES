@@ -15,14 +15,14 @@ entity detect_code is port (
   set_new_mask : in T_ENABLE; 
   enable_mc  : in T_ENABLE;
   enable_key : in T_ENABLE;
-  start_cipher : in;
+  start_cipher : in std_logic;
   -- rnd_seed_in  : in std_logic_vector( 13 downto 0 );
   col_reloc : in std_logic_vector( BLK_IDX_SZ-1 downto 0 ); 
   dyn_sbmap : in std_logic_vector( 2 downto 0 ); 
   lin_mask  : in std_logic_vector( MASK_SIZE-1 downto 0 ); 
   data_out : out std_logic_vector( 15 downto 0 );
   clk, rst : in std_logic );
-  end round;
+  end detect_code;
 
 -- Architecture of the Component
 Architecture a_detect_code of detect_code is
@@ -47,6 +47,22 @@ Architecture a_detect_code of detect_code is
         ctrl_dec : in T_ENCDEC;
         error : out std_logic     );
     end component;
+    component datacell_parity port(
+        clk, rst : in std_logic; 
+		in_H : in std_logic_vector (7 downto 0);
+		in_V : in std_logic;
+		old_pt : in std_logic;
+		enable_H_in : in T_ENABLE;
+		ctrl_dec : in T_ENCDEC;
+		init_cipher : in std_logic;
+		b_out : out std_logic);
+    end component;
+    component MC_col_parity port(
+		din : in std_logic_vector (31 downto 0);
+		pdin : in std_logic_vector (3 downto 0);
+		ctrl_dec : in T_ENCDEC;
+		dout : out std_logic_vector (3 downto 0) ) ;
+    end component;
 
 	signal inH : std_logic_vector( DATA_SIZE-1 downto 0 );
 	signal inV0, inV1, inV2, inV3 : std_logic;
@@ -59,10 +75,9 @@ Architecture a_detect_code of detect_code is
 	signal old_mask_reg, new_mask_reg : std_logic_vector( 31 downto 0 );
 	signal enable_H_inputs_delayed : T_ENABLE;
 	-- Shuffler signals ----------------------------------------------------------
-	signal shuffler_in_pt, shuffler_out_pt : std_logic_vector(3 downto 0);
+	signal shuffler_in_pt, shuffler_out_pt, t_dataout_pt : std_logic_vector(3 downto 0);
 	signal s_en_shuffle_del, s_en_shuffle_del2 : T_ENABLE;
 	signal shuffle_seed_reg : std_logic_vector( 1 downto 0 );
-	signal t_dataout : std_logic_vector( 3 downto 0 );
 	signal s_reloc_reg : std_logic_vector( 1 downto 0 );
 	-- Parity Signals ------------------------------------------------------------
 	signal pt_A0, pt_A1, pt_A2, pt_A3, 
@@ -70,11 +85,11 @@ Architecture a_detect_code of detect_code is
 		   pt_C0, pt_C1, pt_C2, pt_C3,
 		   pt_D0, pt_D1, pt_D2, pt_D3 : std_logic;
 	signal sr_Ai, sr_Bi, sr_Ci, sr_Di : std_logic;
-	signal sbox_outA, sbox_outB, sbox_outC, sbox_outD : std_logic;
+	signal sbox_outA, sbox_outB, sbox_outC, sbox_outD : std_logic_vector(0 downto 0);
 	signal init_cipher : std_logic;
 	signal mixcol_in : std_logic_vector( DATA_SIZE-1 downto 0 );
 	signal mixcol_in_ptA, mixcol_in_ptB, mixcol_in_ptC, mixcol_in_ptD : std_logic_vector(3 downto 0);
-	signal mixcol_out_ptA, mixcol_out_ptB, mixcol_out_ptC, mixcol_out_ptD : std_logic_vector(3 downto 0)
+	signal mixcol_out_ptA, mixcol_out_ptB, mixcol_out_ptC, mixcol_out_ptD : std_logic_vector(3 downto 0);
 	-- Output Signals ------------------------------------------------------------
 
 	begin
@@ -89,10 +104,10 @@ Architecture a_detect_code of detect_code is
 	inH <= mixcol_in when ( realign=C_ENABLED ) 
 		else ( data_in( DATA_HI downto 0 ) xor key_2_add );
 
-	inV0 <= sbox_outA;
-	inV1 <= sbox_outB;
-	inV2 <= sbox_outC;
-	inV3 <= sbox_outD;
+	inV0 <= sbox_outA(0);
+	inV1 <= sbox_outB(0);
+	inV2 <= sbox_outC(0);
+	inV3 <= sbox_outD(0);
 	-- RSEED : reg_B generic map( 14 ) port map( rnd_seed_in, rnd_seed_reg, clk, rst );
 	-- CLRLC : reg_B generic map( 2 ) port map( col_reloc, , clk, rst );
 	-- SBMAP : reg_B generic map( 2 ) port map( dyn_sbmap, , clk, rst );
@@ -100,17 +115,21 @@ Architecture a_detect_code of detect_code is
 	SHFF2 : reg_B generic map( C_CTRL_SIGNAL_SIZE ) port map( s_en_shuffle_del, s_en_shuffle_del2, clk, rst );
 	-- ENHD  : reg_B generic map( C_CTRL_SIGNAL_SIZE ) port map( enable_H_inputs, enable_H_inputs_delayed, clk, rst );
 	
-	BEGINNING_CIPHER : process( clk, start_cipher)
-	begin
-		if (clk'event and clk ='1' and start_cipher ='1') then
-			round <= 11;
-		end if;
-	end process BEGINNING_CIPHER;
+--	BEGINNING_CIPHER : process( clk, start_cipher)
+--	begin
+--		if (clk'event and clk ='1' and start_cipher ='1') then
+--			round <= 11;
+--		end if;
+--	end process BEGINNING_CIPHER;
 
 	CPT_ROUND : process (clk, enable_H_inputs)
 	begin
-		if (clk'event and clk ='1' and enable_H_inputs='1') then
-			round <= round - 1;
+		if (clk'event and clk ='1' and enable_H_inputs=C_ENABLED) then
+			if (start_cipher ='1') then
+				round <= 11;
+			elsif (enable_H_inputs = C_ENABLED) then
+				round <= round - 1;
+			end if;
 		end if;
 	end process CPT_ROUND;
 
@@ -118,12 +137,12 @@ Architecture a_detect_code of detect_code is
 	begin
 		if (clk'event and clk = '1') then
 			if (round = 10) then
-				init_cipher <= 1;
+				init_cipher <= '1';
 			else
-				init_cipher <= 0;
+				init_cipher <= '0';
 			end if;
 		end if;
-	end INIT_ROUND;
+	end process INIT_ROUND;
 
 	WRD_IDX_PROC : process( clk )
 	begin
@@ -172,10 +191,10 @@ Architecture a_detect_code of detect_code is
 	------------------------------------------------------------------------------
 	---- STATE Parity-------------------------------------------------------------
 	------------------------------------------------------------------------------
-	data_col0_unmasked = inH(127 downto 96) xor old_mask_reg;
-	data_col1_unmasked = inH(95 downto 64) xor old_mask_reg;
-	data_col2_unmasked = inH(63 downto 32) xor old_mask_reg;
-	data_col3_unmasked = inH(31 downto 0) xor old_mask_reg;
+	data_col0_unmasked <= inH(127 downto 96) xor old_mask_reg;
+	data_col1_unmasked <= inH(95 downto 64) xor old_mask_reg;
+	data_col2_unmasked <= inH(63 downto 32) xor old_mask_reg;
+	data_col3_unmasked <= inH(31 downto 0) xor old_mask_reg;
 	-- First row:
 	A0 : datacell_parity port map( clk, rst, data_col0_unmasked(31 downto 24), inV0, 
         mixcol_out_ptA(3), enable_H_inputs, ctrl_dec, init_cipher, pt_A0 );
@@ -242,10 +261,10 @@ Architecture a_detect_code of detect_code is
 		  end if; -- rst, clk
     end process RELOC_PROC;
   
-  	t_dataout_pt <= shuffler_in when ( s_reloc_reg(0) = '0' ) else
-               	 shuffler_in( 2 downto 0 ) & shuffler_in(3);
-  	shuffler_out_pt <= t_dataout when ( s_reloc_reg(1) = '0' ) else
-             		t_dataout( 1 downto 0 ) & t_dataout( 3 downto 2 );
+  	t_dataout_pt <= shuffler_in_pt when ( s_reloc_reg(0) = '0' ) else
+               	 shuffler_in_pt( 2 downto 0 ) & shuffler_in_pt(3);
+  	shuffler_out_pt <= t_dataout_pt when ( s_reloc_reg(1) = '0' ) else
+             		t_dataout_pt( 1 downto 0 ) & t_dataout_pt( 3 downto 2 );
 
     -- TRACK REGISTER ------------------------------------------------------------
 	TRK_REG_PROC : process( clk, rst )
@@ -274,17 +293,17 @@ Architecture a_detect_code of detect_code is
     ------------------------------------------------------------------------------
   	------------------------------------------------------------------------------
   	SBOX_REG_1 : reg_B generic map( 1 ) 
-              port map( shuffler_out_pt(3), sbox_outA,
-                        clock, reset );
+              port map( shuffler_out_pt(3 downto 3), sbox_outA,
+                        clk, rst );
     SBOX_REG_2 : reg_B generic map( 1 ) 
-              port map( shuffler_out_pt(2), sbox_outB,
-                        clock, reset );
+              port map( shuffler_out_pt(2 downto 2), sbox_outB,
+                        clk, rst );
     SBOX_REG_3 : reg_B generic map( 1 ) 
-              port map( shuffler_out_pt(1), sbox_outC,
-                        clock, reset );
+              port map( shuffler_out_pt(1 downto 1), sbox_outC,
+                        clk, rst );
     SBOX_REG_4 : reg_B generic map( 1 ) 
-              port map( shuffler_out_pt(0), sbox_outD,
-                        clock, reset );
+              port map( shuffler_out_pt(0 downto 0), sbox_outD,
+                        clk, rst );
     ------------------------------------------------------------------------------
   	------------------------------------------------------------------------------
 
@@ -293,15 +312,15 @@ Architecture a_detect_code of detect_code is
 	------------------------------------------------------------------------------
 	MC_REG : reg_B generic map (DATA_SIZE)
 			port map(data_in(DATA_SIZE-1 downto 0), 
-				mixcol_in, clock, reset);
+				mixcol_in, clk, rst);
 	mixcol_in_ptA <= pt_A0 & pt_A1 & pt_A2 & pt_A3;
 	mixcol_in_ptB <= pt_B0 & pt_B1 & pt_B2 & pt_B3;
 	mixcol_in_ptC <= pt_C0 & pt_C1 & pt_C2 & pt_C3;
 	mixcol_in_ptD <= pt_D0 & pt_D1 & pt_D2 & pt_D3;
-	MC_COLUMN_A : MC_col_parity port map( mixcol_in( 127 downto 96 ), mixcol_in_ptA, ctrl_dec, mixcol_out_ptA) );
-	MC_COLUMN_B : MC_col_parity port map( mixcol_in(  95 downto 64 ), mixcol_in_ptB, ctrl_dec, mixcol_out_ptB) );
-	MC_COLUMN_C : MC_col_parity port map( mixcol_in(  63 downto 32 ), mixcol_in_ptC, ctrl_dec, mixcol_out_ptC) );
-	MC_COLUMN_D : MC_col_parity port map( mixcol_in(  31 downto  0 ), mixcol_in_ptD, ctrl_dec, mixcol_out_ptD) );
+	MC_COLUMN_A : MC_col_parity port map( mixcol_in( 127 downto 96 ), mixcol_in_ptA, ctrl_dec, mixcol_out_ptA) ;
+	MC_COLUMN_B : MC_col_parity port map( mixcol_in(  95 downto 64 ), mixcol_in_ptB, ctrl_dec, mixcol_out_ptB) ;
+	MC_COLUMN_C : MC_col_parity port map( mixcol_in(  63 downto 32 ), mixcol_in_ptC, ctrl_dec, mixcol_out_ptC) ;
+	MC_COLUMN_D : MC_col_parity port map( mixcol_in(  31 downto  0 ), mixcol_in_ptD, ctrl_dec, mixcol_out_ptD) ;
 
 	------------------------------------------------------------------------------
 	---- OUTPUT BLOCK ------------------------------------------------------------
@@ -309,4 +328,4 @@ Architecture a_detect_code of detect_code is
 
 	data_out <= mixcol_out_ptA & mixcol_out_ptB & mixcol_out_ptC & mixcol_out_ptD;
 
-end arch;
+end a_detect_code;
