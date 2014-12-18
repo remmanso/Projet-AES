@@ -43,6 +43,8 @@ begin
     	end loop;
   	end process;
 
+  
+
   	rst <= '0', '1' after 15 * ckt;
   	c_dec <= "0";
 
