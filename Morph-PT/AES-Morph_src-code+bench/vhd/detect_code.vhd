@@ -285,6 +285,26 @@ Architecture a_detect_code of detect_code is
 	sr_Bi(0) <= pt_B3;
 	sr_Ci(0) <= pt_C3;
 	sr_Di(0) <= pt_D3;
+	--RELOC_PROC : process( clk, rst )
+    --variable flag : std_logic_vector( 3 downto 0 );
+  	--begin
+	--	if ( rst = RESET_ACTIVE ) then
+	--	  s_reloc_reg <= "00";
+	--	  flag := "0000";
+	--	elsif ( clk='1' and clk'event ) then
+	--	  if ( enable_shuffle = C_ENABLED ) then
+	--	    s_reloc_reg <= col_reloc; 
+	--	    flag := "1111";
+	--	  elsif ( flag /= "0000" ) then -- continuing rotation, after go_shuffle
+	--	    if ( ctrl_dec=C_ENC ) then
+	--	      s_reloc_reg <= std_logic_vector( unsigned( s_reloc_reg ) - 1 ); 
+	--	    else
+	--	      s_reloc_reg <= std_logic_vector( unsigned( s_reloc_reg ) + 1 ); 
+	--	      end if; -- ctrl_dec
+	--	    flag := '0' & flag( 3 downto 1 );
+	--	    end if; -- go_shuffle
+	--	  end if; -- rst, clk
+    --end process RELOC_PROC;
 
     RELOC_PROC : process( clk, rst )
     variable flag : std_logic_vector( 3 downto 0 );
