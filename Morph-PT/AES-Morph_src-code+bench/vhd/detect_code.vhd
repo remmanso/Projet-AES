@@ -105,6 +105,7 @@ Architecture a_detect_code of detect_code is
 	signal new_mask_colA, new_mask_colB, new_mask_colC, new_mask_colD : std_logic_vector(31 downto 0);
 	-- Output Signals ------------------------------------------------------------
 	signal s_pt_aligned : std_logic_vector(15 downto 0);
+	signal s_pt_non_aligned : std_logic_vector(15 downto 0);
 	signal s_parity_data_in : std_logic_vector(15 downto 0);
 	signal s_data_in_unmasked : std_logic_vector(DATA_HI downto 0);
 	begin
@@ -429,12 +430,13 @@ Architecture a_detect_code of detect_code is
 	PC14 : parity_calculator port map(s_data_in_unmasked( 119 downto 112), s_parity_data_in(14)); 
 	PC15 : parity_calculator port map(s_data_in_unmasked( 127 downto 120), s_parity_data_in(15));  
 	
-	alarm <= C_ENABLED when (s_parity_data_in /=  mixcol_in_ptA & mixcol_in_ptB & mixcol_in_ptC & mixcol_in_ptD and realign=C_ENABLED)
+	alarm <= C_ENABLED when (s_parity_data_in /=  s_pt_non_aligned and realign=C_ENABLED)
 		else C_DISABLED;
 
 	------------------------------------------------------------------------------
 	---- OUTPUT BLOCK ------------------------------------------------------------
 	------------------------------------------------------------------------------
+	s_pt_non_aligned <= mixcol_in_ptA & mixcol_in_ptB & mixcol_in_ptC & mixcol_in_ptD ; 
 	s_pt_aligned <= ( mixcol_in_ptA & mixcol_in_ptB & mixcol_in_ptC & mixcol_in_ptD ) 
 						when ( wrd_idx( 7 downto 6 )="00" ) 
 					else  ( mixcol_in_ptB & mixcol_in_ptC & mixcol_in_ptD & mixcol_in_ptA ) 
