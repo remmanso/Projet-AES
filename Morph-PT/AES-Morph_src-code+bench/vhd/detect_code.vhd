@@ -21,7 +21,9 @@ entity detect_code is port (
   dyn_sbmap : in std_logic_vector( 2 downto 0 ); 
   lin_mask  : in std_logic_vector( MASK_SIZE-1 downto 0 ); 
   data_out : out std_logic_vector( 15 downto 0 );
-  clk, rst : in std_logic );
+  clk, rst : in std_logic;
+  alarm : out T_ENABLE 
+  );
   end detect_code;
 
 -- Architecture of the Component
@@ -65,6 +67,11 @@ Architecture a_detect_code of detect_code is
 		ctrl_dec : in T_ENCDEC;
 		dout : out std_logic_vector (3 downto 0) ) ;
     end component;
+    component parity_calculator port (
+      data_in : in std_logic_vector( 7 downto 0 ); 
+      data_out : in std_logic
+	);
+	end component;
 
 	signal inH : std_logic_vector( DATA_SIZE-1 downto 0 );
 	signal inV0, inV1, inV2, inV3 : std_logic;
@@ -98,6 +105,8 @@ Architecture a_detect_code of detect_code is
 	signal new_mask_colA, new_mask_colB, new_mask_colC, new_mask_colD : std_logic_vector(31 downto 0);
 	-- Output Signals ------------------------------------------------------------
 	signal s_pt_aligned : std_logic_vector(15 downto 0);
+	signal s_parity_data_in : std_logic_vector(15 downto 0);
+	signal s_data_in_unmasked : std_logic_vector(DATA_HI downto 0);
 	begin
 	  ------------------------------------------------------------------------------
 	  ---- INPUT BLOCK -------------------------------------------------------------
@@ -396,6 +405,32 @@ Architecture a_detect_code of detect_code is
 	MC_COLUMN_B : MC_col_parity port map( mixcol_in(  95 downto 64 ), mixcol_in_ptB, ctrl_dec, mixcol_out_ptB) ;
 	MC_COLUMN_C : MC_col_parity port map( mixcol_in(  63 downto 32 ), mixcol_in_ptC, ctrl_dec, mixcol_out_ptC) ;
 	MC_COLUMN_D : MC_col_parity port map( mixcol_in(  31 downto  0 ), mixcol_in_ptD, ctrl_dec, mixcol_out_ptD) ;
+
+  	------------------------------------------------------------------------------
+	---- PARITY COMPARISON -------------------------------------------------------
+	------------------------------------------------------------------------------
+	s_data_in_unmasked <= data_in(DATA_HI downto 0) xor ExpandMask( new_mask_reg ) when (realign = C_ENABLED)
+	else (others => '0');
+
+	PC0 : parity_calculator port map(s_data_in_unmasked( 7 downto 0), s_parity_data_in(0)); 
+	PC1 : parity_calculator port map(s_data_in_unmasked( 15 downto 8), s_parity_data_in(1)); 
+	PC2 : parity_calculator port map(s_data_in_unmasked( 23 downto 16), s_parity_data_in(2)); 
+	PC3 : parity_calculator port map(s_data_in_unmasked( 31 downto 24), s_parity_data_in(3)); 
+	PC4 : parity_calculator port map(s_data_in_unmasked( 39 downto 32), s_parity_data_in(4)); 
+	PC5 : parity_calculator port map(s_data_in_unmasked( 47 downto 40), s_parity_data_in(5)); 
+	PC6 : parity_calculator port map(s_data_in_unmasked( 55 downto 48), s_parity_data_in(6)); 
+	PC7 : parity_calculator port map(s_data_in_unmasked( 63 downto 56), s_parity_data_in(7)); 
+	PC8 : parity_calculator port map(s_data_in_unmasked( 71 downto 64), s_parity_data_in(8)); 
+	PC9 : parity_calculator port map(s_data_in_unmasked( 79 downto 72), s_parity_data_in(9)); 
+	PC10 : parity_calculator port map(s_data_in_unmasked( 87 downto 80), s_parity_data_in(10)); 
+	PC11 : parity_calculator port map(s_data_in_unmasked( 95 downto 88), s_parity_data_in(11)); 
+	PC12 : parity_calculator port map(s_data_in_unmasked( 103 downto 96), s_parity_data_in(12)); 
+	PC13 : parity_calculator port map(s_data_in_unmasked( 111 downto 104), s_parity_data_in(13)); 
+	PC14 : parity_calculator port map(s_data_in_unmasked( 119 downto 112), s_parity_data_in(14)); 
+	PC15 : parity_calculator port map(s_data_in_unmasked( 127 downto 120), s_parity_data_in(15));  
+	
+	alarm <= C_ENABLED when (s_parity_data_in = s_pt_aligned and realign=C_ENABLED)
+		else C_DISABLED;
 
 	------------------------------------------------------------------------------
 	---- OUTPUT BLOCK ------------------------------------------------------------
