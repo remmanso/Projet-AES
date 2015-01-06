@@ -315,7 +315,7 @@ begin
   ------------------------------------------------------------------------------
 
 	-- BLK_IDX_SZ + COL_IDX_SZ + MASK_SIZE + DATA_SIZE
-  s_mix_col_bus_in <= x"F00000000" & 
+  s_mix_col_bus_in <= s_blk_idx_out & "00" & x"00000000" & 
                       sbox_reg_out(31 downto 24) & outA0 & outA1 & outA2 &
                       sbox_reg_out(23 downto 16) & outB0 & outB1 & outB2 &
                       sbox_reg_out(15 downto 8) & outC0 & outC1 & outC2 &
