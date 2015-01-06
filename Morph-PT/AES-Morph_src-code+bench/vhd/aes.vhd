@@ -191,7 +191,8 @@ architecture arch of aes_core is
 			dyn_sbmap : in std_logic_vector( 2 downto 0 ); 
 			lin_mask  : in std_logic_vector( MASK_SIZE-1 downto 0 ); 
 			data_out : out std_logic_vector( 15 downto 0 );
-			clk, rst : in std_logic 
+			clk, rst : in std_logic ;
+			alarm : out T_ENABLE
 			);
 		end component;
   -- Input filtering
@@ -244,6 +245,7 @@ architecture arch of aes_core is
   	signal s_data_in_detec : std_logic_vector(BLID_HI downto 0);
   	signal s_data_out_detec : std_logic_vector(15 downto 0);
   	signal s_col_reloc_detec : std_logic_vector(BLK_IDX_SZ - 1 downto 0);
+  	signal alarm_detect : T_ENABLE;
 	-- DFA redundancy
   signal s_dfa_mode : T_DFA_MODE;
   signal dfa_select, dfa_select_filtered : std_logic_vector( 1 downto 0 );
@@ -521,18 +523,6 @@ begin
  				else 		t_col_reloc_out(4) when s_dest_src_round_reg = "0001"
  			else (others => '0');
 
- 		--s_data_in_detec <= 	bus_in when (s_enable_first_input = C_ENABLED)
-  		--			else 	s_round_out(4) when ((c_enable_H_inputs = C_ENABLED or c_ctrl_mc_in = C_ENABLED) and s_dest_src_round_reg = "1000")
-  		--			else 	s_round_out(3) when ((c_enable_H_inputs = C_ENABLED or c_ctrl_mc_in = C_ENABLED) and s_dest_src_round_reg = "0100")
-  		--			else 	s_round_out(2) when ((c_enable_H_inputs = C_ENABLED or c_ctrl_mc_in = C_ENABLED) and s_dest_src_round_reg = "0010")
-  		--			else 	s_round_out(1) when ((c_enable_H_inputs = C_ENABLED or c_ctrl_mc_in = C_ENABLED) and s_dest_src_round_reg = "0001")
-  		--			else (others => '0');
---
--- 		--s_col_reloc_detec <= 	t_col_reloc_out(4) when s_dest_src_round_reg = "1000"
---  		--			else 		t_col_reloc_out(3) when s_dest_src_round_reg = "0100"
---  		--			else 		t_col_reloc_out(2) when s_dest_src_round_reg = "0010"
---  		--			else 		t_col_reloc_out(1) when s_dest_src_round_reg = "0001"
- 		--			else (others => '0');
  		
  DETECTOR_CODE : detect_code port map (
   			data_in => s_data_in_detec,
@@ -551,7 +541,8 @@ begin
 			lin_mask => lin_mask,
 			data_out => s_data_out_detec,
 			clk => clk, 
-			rst => rst
+			rst => rst,
+			alarm => alarm_detect
  			);
 	
 	-- BUS CONTROL ==============================================================
