@@ -410,7 +410,7 @@ Architecture a_detect_code of detect_code is
   	------------------------------------------------------------------------------
 	---- PARITY COMPARISON -------------------------------------------------------
 	------------------------------------------------------------------------------
-	s_data_in_unmasked <= data_in(DATA_HI downto 0) xor ExpandMask( old_mask_reg ) when (realign = C_ENABLED)
+	s_data_in_unmasked <= data_in(DATA_HI downto 0) xor ExpandMask( data_in(MASK_HI downto MASK_LO) ) when (realign = C_ENABLED)
 	else (others => '0');
 
 	PC0 : parity_calculator port map(s_data_in_unmasked( 7 downto 0), s_parity_data_in(0)); 
