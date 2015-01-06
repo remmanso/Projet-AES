@@ -429,7 +429,7 @@ Architecture a_detect_code of detect_code is
 	PC14 : parity_calculator port map(s_data_in_unmasked( 119 downto 112), s_parity_data_in(14)); 
 	PC15 : parity_calculator port map(s_data_in_unmasked( 127 downto 120), s_parity_data_in(15));  
 	
-	alarm <= C_ENABLED when (s_parity_data_in = s_pt_aligned and realign=C_ENABLED)
+	alarm <= C_ENABLED when (s_parity_data_in /=  mixcol_in_ptA & mixcol_in_ptB & mixcol_in_ptC & mixcol_in_ptD and realign=C_ENABLED)
 		else C_DISABLED;
 
 	------------------------------------------------------------------------------
