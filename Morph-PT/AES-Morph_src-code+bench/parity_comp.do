@@ -8,7 +8,6 @@ add wave -noupdate -radix hexadecimal /a_test_aes_core/UUT/s_realign
 add wave -noupdate -radix hexadecimal /a_test_aes_core/UUT/DETECTOR_CODE/s_data_in_unmasked
 add wave -noupdate -radix hexadecimal /a_test_aes_core/UUT/DETECTOR_CODE/s_parity_data_in
 add wave -noupdate /a_test_aes_core/UUT/DETECTOR_CODE/s_data_out_parity
-add wave -noupdate -radix hexadecimal /a_test_aes_core/UUT/DETECTOR_CODE/s_parity_data_in_debug
 add wave -noupdate -radix hexadecimal /a_test_aes_core/UUT/DETECTOR_CODE/alarm
 add wave -noupdate -divider R1
 add wave -noupdate -radix hexadecimal /a_test_aes_core/UUT/round_for(1)/ROUND_I/data_in
@@ -23,7 +22,7 @@ add wave -noupdate -divider R3
 add wave -noupdate -radix hexadecimal /a_test_aes_core/UUT/round_for(4)/ROUND_I/data_in
 add wave -noupdate -radix hexadecimal /a_test_aes_core/UUT/round_for(4)/ROUND_I/data_out
 TreeUpdate [SetDefaultTree]
-WaveRestoreCursors {{Cursor 1} {5265288 ps} 0}
+WaveRestoreCursors {{Cursor 1} {5260000 ps} 0}
 quietly wave cursor active 1
 configure wave -namecolwidth 222
 configure wave -valuecolwidth 200
@@ -39,4 +38,4 @@ configure wave -griddelta 40
 configure wave -timeline 0
 configure wave -timelineunits ns
 update
-WaveRestoreZoom {4314679 ps} {4433499 ps}
+WaveRestoreZoom {5200590 ps} {5319410 ps}
