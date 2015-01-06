@@ -69,7 +69,7 @@ Architecture a_detect_code of detect_code is
     end component;
     component parity_calculator port (
       data_in : in std_logic_vector( 7 downto 0 ); 
-      data_out : in std_logic
+      data_out : out std_logic
 	);
 	end component;
 
