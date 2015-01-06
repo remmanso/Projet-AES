@@ -119,24 +119,11 @@ Architecture a_detect_code of detect_code is
 	s_data_in_unmasked <= data_in(DATA_HI downto 0) xor ExpandMask( data_in(MASK_HI downto MASK_LO) ) when (realign = C_ENABLED)
 	else (others => '0');
 
-	PC0 : parity_calculator port map(s_data_in_unmasked( 7 downto 0), s_parity_data_in(0)); 
-	PC1 : parity_calculator port map(s_data_in_unmasked( 15 downto 8), s_parity_data_in(1)); 
-	PC2 : parity_calculator port map(s_data_in_unmasked( 23 downto 16), s_parity_data_in(2)); 
-	PC3 : parity_calculator port map(s_data_in_unmasked( 31 downto 24), s_parity_data_in(3)); 
-	PC4 : parity_calculator port map(s_data_in_unmasked( 39 downto 32), s_parity_data_in(4)); 
-	PC5 : parity_calculator port map(s_data_in_unmasked( 47 downto 40), s_parity_data_in(5)); 
-	PC6 : parity_calculator port map(s_data_in_unmasked( 55 downto 48), s_parity_data_in(6)); 
-	PC7 : parity_calculator port map(s_data_in_unmasked( 63 downto 56), s_parity_data_in(7)); 
-	PC8 : parity_calculator port map(s_data_in_unmasked( 71 downto 64), s_parity_data_in(8)); 
-	PC9 : parity_calculator port map(s_data_in_unmasked( 79 downto 72), s_parity_data_in(9)); 
-	PC10 : parity_calculator port map(s_data_in_unmasked( 87 downto 80), s_parity_data_in(10)); 
-	PC11 : parity_calculator port map(s_data_in_unmasked( 95 downto 88), s_parity_data_in(11)); 
-	PC12 : parity_calculator port map(s_data_in_unmasked( 103 downto 96), s_parity_data_in(12)); 
-	PC13 : parity_calculator port map(s_data_in_unmasked( 111 downto 104), s_parity_data_in(13)); 
-	PC14 : parity_calculator port map(s_data_in_unmasked( 119 downto 112), s_parity_data_in(14)); 
-	PC15 : parity_calculator port map(s_data_in_unmasked( 127 downto 120), s_parity_data_in(15));  
-	
-	
+	PC_for : for I in 1 to 16 generate
+	PC_I : parity_calculator port map(
+		data_in => s_data_in_unmasked(8*I-1 downto 8*(I-1)), 
+		data_out => s_parity_data_in(I-1));
+	end generate PC_for;
 
 	------------------------------------------------------------------------------
 	---- OUTPUT BLOCK ------------------------------------------------------------
