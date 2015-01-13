@@ -2,6 +2,6 @@ Morph-PT/AES-Morph_src-code+bench/libs
 Morph-PT/AES-Morph_src-code+bench/*.wlf
 Morph-PT/AES-Morph_src-code+bench/transcript
 Morph-PT/AES-Morph_faulted_src-code+bench/transcript
-Morph-PT/AES-Morph_faulted_src-code+bench/libs/*
+Morph-PT/AES-Morph_faulted_src-code+bench/libs/lib*
 Morph-PT/AES-Morph_faulted_src-code+bench/synth/*
 Morph-PT/modelsim.ini
