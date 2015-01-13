@@ -54,6 +54,7 @@ architecture exp of A_test_aes_core is
 	signal rst, ck, ck2x : std_logic;
 	signal seltest : integer;
 	signal deb_bus_ctrls : std_logic_vector( NUMBER_OF_ROUNDS*(NUMBER_OF_ROUNDS+2)-1 downto 0 ); 
+	signal c_enable_full_red, c_enable_partial_red : std_logic;
 begin
 	rst<= not( RESET_ACTIVE ), 
       	RESET_ACTIVE after 15*ckt, 
@@ -111,7 +112,10 @@ begin
 		go_k <= '0';
 		keyin  <= ( others=>'0' ); 
 		wait for 10*ckt;
+	-- PARTIAL RED
     -- SEND PTX
+    	c_enable_partial_red <= '1';
+    	c_enable_full_red <= '0';
 		goe <=  '1';
 		enc_datain <= edata; wait for ckt;
 		goe <=  '0';
@@ -165,6 +169,44 @@ begin
 		wait for ckt;
 		wait until rdy='1';
 		wait for 10*ckt;
+
+
+	-- FULL RED
+    -- SEND PTX
+    	c_enable_partial_red <= '0';
+    	c_enable_full_red <= '1';
+		goe <=  '1';
+		enc_datain <= edata; wait for ckt;
+		goe <=  '0';
+		enc_datain <= ( others=>'0' );	
+		wait for ckt;
+		wait until rdy='1';
+		wait for 10*ckt;
+		-- SEND PTX
+		goe <=  '1';
+		enc_datain <= edata; wait for ckt;
+		goe <=  '0';
+		enc_datain <= ( others=>'0' );	
+		wait for ckt;
+		wait until rdy='1';
+		wait for 10*ckt;
+		-- SEND PTX
+		goe <=  '1';
+		enc_datain <= edata2; wait for ckt;
+		goe <=  '0';
+		enc_datain <= ( others=>'0' );	
+		wait for ckt;
+		wait until rdy='1';
+		wait for 10*ckt;
+		-- SEND PTXs
+		goe <= '1';
+		enc_datain <= edata1; wait for ckt;
+		enc_datain <= edata2; wait for ckt;
+		goe <= '0';
+		enc_datain <= ( others=>'0' );	
+		wait for ckt;
+		wait until rdy='1';
+		wait for 10*ckt;
 		end process DATA_PROC;
 
 	goc <= god when enc_command='1' else 
@@ -187,8 +229,8 @@ begin
 			input_key => keyin, -- input_key, 
 			-- enc_mode => enc_command,
 			rndms_in => seed, 
-			enable_full_red => '0',
-			enable_partial_red => '1',
+			enable_full_red => c_enable_full_red,
+			enable_partial_red => c_enable_partial_red,
 			data_out => data_outH,
 			data_out_ok => data_out_ok, 
       error_out => error_out,

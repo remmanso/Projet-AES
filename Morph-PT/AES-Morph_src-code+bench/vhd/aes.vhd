@@ -177,7 +177,7 @@ architecture arch of aes_core is
 		end component;
 	component detect_code
 		port(
-			data_in : in std_logic_vector( BLID_HI downto 0 ); 
+			data_in : in std_logic_vector( BLID_HI downto 0 );
 			key : in std_logic_vector( 127 downto 0 ); 
 			ctrl_dec : in T_ENCDEC;
 			enable_H_inputs : in T_ENABLE;
@@ -186,6 +186,8 @@ architecture arch of aes_core is
 			enable_mc  : in T_ENABLE;
 			enable_key : in T_ENABLE;
 			start_cipher : in std_logic;
+			dfa_mode : in T_DFA_MODE;
+			enable_check : in T_ENABLE;
 			-- rnd_seed_in  : in std_logic_vector( 13 downto 0 );
 			col_reloc : in std_logic_vector( BLK_IDX_SZ-1 downto 0 ); 
 			dyn_sbmap : in std_logic_vector( 2 downto 0 ); 
@@ -242,7 +244,7 @@ architecture arch of aes_core is
 	signal c_enable_check : T_ENABLE;
   signal s_ready : T_READY;
   	-- Detector code signals
-  	signal s_data_in_detec : std_logic_vector(BLID_HI downto 0);
+  	signal s_data_in_detec, : std_logic_vector(BLID_HI downto 0);
   	signal s_data_out_detec : std_logic_vector(15 downto 0);
   	signal s_col_reloc_detec : std_logic_vector(BLK_IDX_SZ - 1 downto 0);
   	signal alarm_detect : T_ENABLE;
@@ -519,12 +521,20 @@ begin
   			else 	2 when (s_dfa_mode=PARTIAL_RED and s_round_out(2)(BLID_HI downto BLID_LO) = "00")
   			else 	3 when (s_dfa_mode=PARTIAL_RED and s_round_out(3)(BLID_HI downto BLID_LO) = "00")
   			else 	4 when (s_dfa_mode=PARTIAL_RED and s_round_out(4)(BLID_HI downto BLID_LO) = "00")
+  			else 	1 when (s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 1 )='0'
+						and s_round_out( 1 )( BLID_HI downto BLID_LO )=c_blk_out_index )
+			else 	2 when (s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 2 )='0'
+						and s_round_out( 2 )( BLID_HI downto BLID_LO )=c_blk_out_index )
+			else 	3 when (s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 3 )='0'
+						and s_round_out( 3 )( BLID_HI downto BLID_LO )=c_blk_out_index )
+			else 	4  when (s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 4 )='0'
+						and s_round_out( 4 )( BLID_HI downto BLID_LO )=c_blk_out_index )
   			else 0;
   					
   		s_data_in_detec <= 	bus_in when (s_enable_first_input = C_ENABLED and bus_in(BLID_HI downto BLID_LO) = "00")
   					else 	detect_in when (s_enable_first_input = C_ENABLED)
-  					else 	s_round_out(cpt_round) when (s_dfa_mode=PARTIAL_RED and c_enable_H_inputs = C_ENABLED and cpt_round /= 0)
-  					else 	s_round_out(cpt_round) when (s_dfa_mode=PARTIAL_RED and c_ctrl_mc_in = C_ENABLED and cpt_round /= 0)
+  					else 	s_round_out(cpt_round) when ((s_dfa_mode=PARTIAL_RED or s_dfa_mode = FULL_RED) and c_enable_H_inputs = C_ENABLED and cpt_round /= 0)
+  					else 	s_round_out(cpt_round) when ((s_dfa_mode=PARTIAL_RED or s_dfa_mode = FULL_RED) and c_ctrl_mc_in = C_ENABLED and cpt_round /= 0)
   					else (others => '0');
 
   		INIT_DETECT_PROC : process(clk, rst)
@@ -545,21 +555,8 @@ begin
   		end process INIT_DETECT_PROC;
   			
 
- 		s_col_reloc_detec <= 	t_col_reloc_out(cpt_round) when (s_dfa_mode = PARTIAL_RED and cpt_round /= 0) 
+ 		s_col_reloc_detec <= 	t_col_reloc_out(cpt_round) when ((s_dfa_mode = PARTIAL_RED or s_dfa_mode = FULL_RED) and cpt_round /= 0) 
  			else (others => '0');
-
-		--s_data_in_detec <= 	bus_in when (s_enable_first_input = C_ENABLED)
-  		--			else 	s_round_out(1) when (s_dfa_mode=PARTIAL_RED and (c_enable_H_inputs = C_ENABLED or c_ctrl_mc_in = C_ENABLED) and s_dest_src_round_reg = "1000")
-  		--			else 	s_round_out(2) when (s_dfa_mode=PARTIAL_RED and (c_enable_H_inputs = C_ENABLED or c_ctrl_mc_in = C_ENABLED) and s_dest_src_round_reg = "0100")
-  		--			else 	s_round_out(3) when (s_dfa_mode=PARTIAL_RED and (c_enable_H_inputs = C_ENABLED or c_ctrl_mc_in = C_ENABLED) and s_dest_src_round_reg = "0010")
-  		--			else 	s_round_out(4) when (s_dfa_mode=PARTIAL_RED and (c_enable_H_inputs = C_ENABLED or c_ctrl_mc_in = C_ENABLED) and s_dest_src_round_reg = "0001")
-  		--			else (others => '0');
---
--- 		--s_col_reloc_detec <= 	t_col_reloc_out(1) when s_dest_src_round_reg = "1000"
--- 		--		else 		t_col_reloc_out(2) when s_dest_src_round_reg = "0100"
--- 		--		else 		t_col_reloc_out(3) when s_dest_src_round_reg = "0010"
--- 		--		else 		t_col_reloc_out(4) when s_dest_src_round_reg = "0001"
- 		--	else (others => '0'); 		
 
  		
  DETECTOR_CODE : detect_code port map (
@@ -573,6 +570,8 @@ begin
 			enable_mc => c_ctrl_mc,
 			enable_key => c_ctrl_key,
 			start_cipher => start_cipher_filtered,
+			dfa_mode => s_dfa_mode,
+			enable_check => c_enable_check,
 			-- rnd_seed_in  : in std_logic_vector( 13 downto 0 );
 			col_reloc => s_col_reloc_detec,
 			dyn_sbmap => dyn_sbmap,
@@ -717,6 +716,10 @@ begin
   data_out <= masked_data_out xor ExpandMask( mask_out );
 	data_out_ok <= '1' when ( c_data_out_ok=C_ENABLED ) else '0';
 	ready_out <= '1' when ( s_ready=C_RDY ) else '0';
-	error_out <= '0' when ( s_alarm=C_DISABLED ) else '1';
+	--error_out <= '0' when ( s_alarm=C_DISABLED ) else '1';
+	error_out <= '1' when (s_dfa_mode = FULL_RED and c_data_out_ok = C_ENABLED and alarm_detect = C_DISABLED and s_alarm = C_ENABLED)
+		else 	'1' when (s_dfa_mode = PARTIAL_RED and c_data_out_ok = C_ENABLED and s_alarm = C_ENABLED) 
+		else 	'0';
+
 
   end arch;

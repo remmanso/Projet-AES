@@ -16,6 +16,8 @@ entity detect_code is port (
   enable_mc  : in T_ENABLE;
   enable_key : in T_ENABLE;
   start_cipher : in std_logic;
+  dfa_mode : in T_DFA_MODE;
+  enable_check : in T_ENABLE;
   -- rnd_seed_in  : in std_logic_vector( 13 downto 0 );
   col_reloc : in std_logic_vector( BLK_IDX_SZ-1 downto 0 ); 
   dyn_sbmap : in std_logic_vector( 2 downto 0 ); 
@@ -43,6 +45,7 @@ Architecture a_detect_code of detect_code is
 		enable_mc  : in T_ENABLE;
 		enable_key : in T_ENABLE;
 		start_cipher : in std_logic;
+		dfa_mode : in T_DFA_MODE;
 		-- rnd_seed_in  : in std_logic_vector( 13 downto 0 );
 		col_reloc : in std_logic_vector( BLK_IDX_SZ-1 downto 0 ); 
 		dyn_sbmap : in std_logic_vector( 2 downto 0 ); 
@@ -53,6 +56,7 @@ Architecture a_detect_code of detect_code is
 	end component;
 
 	signal s_data_out_parity : std_logic_vector(15 downto 0);
+	signal s_dfa_mode : T_DFA_MODE;
 
 	-- signal blk_idx : std_logic_vector( NUMBER_OF_ROUNDS_INSTANCES*BLK_IDX_SZ-1 downto 0 );
 	signal wrd_idx : std_logic_vector( 7 downto 6 );
@@ -65,8 +69,10 @@ Architecture a_detect_code of detect_code is
 	signal s_data_in_unmasked : std_logic_vector(DATA_HI downto 0);
 	begin
 
+	s_dfa_mode <= dfa_mode;
+
 	PARITY_EXP : parity_expectation port map(data_in, key, ctrl_dec, enable_H_inputs, enable_shuffle, realign, set_new_mask,
-		enable_mc, enable_key, start_cipher, col_reloc, dyn_sbmap, lin_mask, s_data_out_parity, clk, rst);
+		enable_mc, enable_key, start_cipher, s_dfa_mode, col_reloc, dyn_sbmap, lin_mask, s_data_out_parity, clk, rst);
 
 	WRD_IDX_PROC : process( clk )
 	begin
@@ -116,8 +122,8 @@ Architecture a_detect_code of detect_code is
   	------------------------------------------------------------------------------
 	---- PARITY COMPARISON -------------------------------------------------------
 	------------------------------------------------------------------------------
-	s_data_in_unmasked <= data_in(DATA_HI downto 0) xor ExpandMask( data_in(MASK_HI downto MASK_LO) ) when (realign = C_ENABLED)
-	else (others => '0');
+	s_data_in_unmasked <= data_in(DATA_HI downto 0) xor ExpandMask( data_in(MASK_HI downto MASK_LO) ) when ( (s_dfa_mode = PARTIAL_RED or s_dfa_mode = FULL_RED) and realign = C_ENABLED)
+		else (others => '0');
 
 	PC_for : for I in 1 to 16 generate
 	PC_I : parity_calculator port map(
@@ -129,7 +135,8 @@ Architecture a_detect_code of detect_code is
 	---- OUTPUT BLOCK ------------------------------------------------------------
 	------------------------------------------------------------------------------
 	
-	alarm <= C_ENABLED when (s_parity_data_in /= s_data_out_parity and realign=C_ENABLED)
+	alarm <= C_ENABLED when (s_dfa_mode = PARTIAL_RED and s_parity_data_in /= s_data_out_parity and realign=C_ENABLED)
+		else C_ENABLED when (s_dfa_mode = FULL_RED and s_parity_data_in /= s_data_out_parity and realign=C_ENABLED and data_in(BLID_HI downto BLID_LO) = "00")--enable_check = C_ENABLED)
 		else C_DISABLED;
 
 	data_out <= s_data_out_parity;
