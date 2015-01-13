@@ -6,6 +6,7 @@ library IEEE;
 --library WORK;
 -- use  WORK.globals.all;
 library lib_aes_core;
+	use lib_aes_core.all;
 
 -- Component Declaration
 entity A_test_aes_core_faulted is

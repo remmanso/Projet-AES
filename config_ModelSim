@@ -1,0 +1,4 @@
+export MTI_HOME=/opt/altera/14.0/modelsim_ase/
+export PATH="$PATH:$MTI_HOME/`$MTI_HOME/vco`"
+export MODELSIM="$HOME/documents/SLE_3A/Projet-AES/Morph-PT/modelsim.ini"
+export MODEL_TECH="/opt/altera/14.0/modelsim_ase/linux"
