@@ -3,7 +3,7 @@ library IEEE;
 	use IEEE.std_logic_1164.all;
   use IEEE.numeric_std.all;
 
-library lib_aes_core;
+--library lib_aes_core;
 -- Component Declaration
 entity Test_aes_anr_b is
 

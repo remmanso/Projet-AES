@@ -763,8 +763,21 @@ begin
 	data_out_ok <= '1' when ( c_data_out_ok=C_ENABLED ) else '0';
 	ready_out <= '1' when ( s_ready=C_RDY ) else '0';
 	--error_out <= '0' when ( s_alarm=C_DISABLED ) else '1';
-	error_out <= '1' when (s_dfa_mode = FULL_RED and c_data_out_ok = C_ENABLED and alarm_detect = C_DISABLED and s_alarm = C_ENABLED)
-		else 	'1' when (s_dfa_mode = PARTIAL_RED and c_data_out_ok = C_ENABLED and s_alarm = C_ENABLED) 
-		else 	'0';
+	--error_out <= '1' when (s_dfa_mode = FULL_RED and c_data_out_ok = C_ENABLED and alarm_detect = C_DISABLED and s_alarm = C_ENABLED)
+	--	else 	'1' when (s_dfa_mode = PARTIAL_RED and c_data_out_ok = C_ENABLED and s_alarm = C_ENABLED) 
+	--	else 	'0';
+
+	ERROR_PROC : process(s_dfa_mode, c_data_out_ok, alarm_detect, s_alarm)
+	begin
+	 error_out <= '0';
+	 if (s_alarm = C_ENABLED and c_data_out_ok = C_ENABLED) then
+	  if (s_dfa_mode = FULL_RED and alarm_detect = C_DISABLED) then
+        error_out <= '1';
+	 end if;
+	  if ( s_dfa_mode = PARTIAL_RED) then
+		error_out <= '1';
+	 end if;
+	end if;
+	end process;
 
   end arch;

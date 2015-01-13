@@ -21,8 +21,8 @@ architecture exp of A_test_aes_core_faulted is
 	constant NUMBER_OF_ROUNDS_INSTANCES : integer := 4;
 	constant BLK_IDX_SZ : integer :=  2; -- LOG2( NUMBER_OF_ROUNDS_INSTANCES )
 	constant NUMBER_OF_ROUNDS : integer := NUMBER_OF_ROUNDS_INSTANCES;
-	component aes_core is 
---		generic ( 
+	component aes_core 
+--	generic ( 
 --			NUMBER_OF_ROUNDS : integer := NUMBER_OF_ROUNDS_INSTANCES;
 --			LOG2_NUM_OF_ROUNDS : integer := BLK_IDX_SZ			);
 		port (

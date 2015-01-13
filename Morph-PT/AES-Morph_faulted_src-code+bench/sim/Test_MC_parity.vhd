@@ -3,7 +3,7 @@ library IEEE;
   use IEEE.numeric_std.all;
 --library WORK;
 -- use  WORK.globals.all;
-library lib_aes_core;
+--library lib_aes_core;
 
 -- Component Declaration
 entity A_test_MC_parity is
