@@ -37,6 +37,7 @@ architecture exp of A_test_aes_core_faulted is
 			rndms_in : in std_logic_vector( 5 downto 0 ); -- bus noise / blk_reloc / col_reloc / dyn mapping / linear mask
 			enable_full_red : in std_logic; 
 			enable_partial_red : in std_logic; 
+			enable_detect_code : in std_logic;
 
 			data_out : out std_logic_vector( 127 downto 0 ); 
 			data_out_ok : out std_logic; 
@@ -58,6 +59,7 @@ architecture exp of A_test_aes_core_faulted is
 	signal deb_bus_ctrls : std_logic_vector( NUMBER_OF_ROUNDS*(NUMBER_OF_ROUNDS+2)-1 downto 0 ); 
 	signal c_enable_full_red, c_enable_partial_red : std_logic;
 	signal s_enable_fault : std_logic;
+	signal s_enable_detect_code : std_logic;
 begin
 	rst<= not( RESET_ACTIVE ), 
       	RESET_ACTIVE after 15*ckt, 
@@ -81,6 +83,7 @@ begin
 	seltest <= 1;
 	edata  <= edata1 when ( seltest=1 ) else edata2;
 	input_key <= kdata1 when ( seltest=1 ) else kdata2;
+	s_enable_detect_code <= '1';
 
 	-- bus noise / blk_reloc / col_reloc / dyn mapping / linear mask
 
@@ -175,7 +178,7 @@ begin
 		enc_datain <= edata; wait for ckt;
 		goe <=  '0';
 		enc_datain <= ( others=>'0' );	
-		wait for 25 * ckt;
+		wait for 33 * ckt;
 		s_enable_fault <= '1';
 		wait for 1 * ckt;
 		s_enable_fault <= '0';
@@ -186,7 +189,7 @@ begin
 		enc_datain <= edata; wait for ckt;
 		goe <=  '0';
 		enc_datain <= ( others=>'0' );	
-		wait for 45 * ckt;
+		wait for 52 * ckt;
 		s_enable_fault <= '1';
 		wait for ckt;
 		s_enable_fault <= '0';
@@ -197,7 +200,7 @@ begin
 		enc_datain <= edata2; wait for ckt;
 		goe <=  '0';
 		enc_datain <= ( others=>'0' );	
-		wait for 32 * ckt;
+		wait for 41 * ckt;
 		s_enable_fault <= '1';
 		wait for 1 * ckt;
 		s_enable_fault <= '0';
@@ -209,7 +212,7 @@ begin
 		enc_datain <= edata2; wait for ckt;
 		goe <= '0';
 		enc_datain <= ( others=>'0' );	
-		wait for 22 * ckt;
+		wait for 12 * ckt;
 		s_enable_fault <= '1';
 		wait for 1 * ckt;
 		s_enable_fault <= '0';
@@ -240,6 +243,7 @@ begin
 			rndms_in => seed, 
 			enable_full_red => c_enable_full_red,
 			enable_partial_red => c_enable_partial_red,
+			enable_detect_code => s_enable_detect_code,
 			data_out => data_outH,
 			data_out_ok => data_out_ok, 
       error_out => error_out,

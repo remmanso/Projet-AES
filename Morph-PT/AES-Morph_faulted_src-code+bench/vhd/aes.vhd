@@ -22,7 +22,8 @@ entity aes_core is
     
 		rndms_in : in std_logic_vector( 5 downto 0 ); 
     enable_full_red : in std_logic; 
-    enable_partial_red : in std_logic; 
+    enable_partial_red : in std_logic;
+    enable_detect_code : in std_logic; 
     
 		data_out : out std_logic_vector( DATA_SIZE-1 downto 0 ); 
 		data_out_ok : out std_logic; 
@@ -191,6 +192,7 @@ architecture arch of aes_core is
 			start_cipher : in std_logic;
 			dfa_mode : in T_DFA_MODE;
 			enable_check : in T_ENABLE;
+			enable_detect_code : in std_logic;
 			-- rnd_seed_in  : in std_logic_vector( 13 downto 0 );
 			col_reloc : in std_logic_vector( BLK_IDX_SZ-1 downto 0 ); 
 			dyn_sbmap : in std_logic_vector( 2 downto 0 ); 
@@ -620,6 +622,7 @@ begin
 			start_cipher => start_cipher_filtered,
 			dfa_mode => s_dfa_mode,
 			enable_check => c_enable_check,
+			enable_detect_code => enable_detect_code,
 			-- rnd_seed_in  : in std_logic_vector( 13 downto 0 );
 			col_reloc => s_col_reloc_detec,
 			dyn_sbmap => dyn_sbmap,

@@ -19,6 +19,7 @@ entity detect_code is port (
   start_cipher : in std_logic;
   dfa_mode : in T_DFA_MODE;
   enable_check : in T_ENABLE;
+  enable_detect_code : in std_logic;
   -- rnd_seed_in  : in std_logic_vector( 13 downto 0 );
   col_reloc : in std_logic_vector( BLK_IDX_SZ-1 downto 0 ); 
   dyn_sbmap : in std_logic_vector( 2 downto 0 ); 
@@ -146,6 +147,8 @@ Architecture a_detect_code of detect_code is
 		if ( clk'event and clk='1' ) then
 			if ( rst=RESET_ACTIVE ) then 
 				s_alarm <= C_DISABLED; 
+			elsif (enable_detect_code = '0') then
+				s_alarm <= C_DISABLED;
 			elsif ( enc_started='1' ) then
 				s_alarm <= C_DISABLED; 
 			elsif ( enable_check=C_ENABLED ) then 
