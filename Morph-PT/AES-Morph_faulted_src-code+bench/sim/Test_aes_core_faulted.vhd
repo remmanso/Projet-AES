@@ -165,17 +165,6 @@ begin
 		wait for ckt;
 		wait until rdy='1';
 		wait for 10*ckt;
-		-- SEND PTXs
-		goe <= '1';
-		enc_datain <= edata1; wait for ckt;
-		enc_datain <= kdata2; wait for ckt;
-		enc_datain <= ddata1; wait for ckt;
-		enc_datain <= edata2; wait for ckt;
-		goe <= '0';
-		enc_datain <= ( others=>'0' );	
-		wait for ckt;
-		wait until rdy='1';
-		wait for 10*ckt;
 
 
 	-- FULL RED
