@@ -10,6 +10,7 @@ entity detect_code is port (
   data_in : in std_logic_vector( BLID_HI downto 0 ); 
   key : in std_logic_vector( 127 downto 0 ); 
   ctrl_dec : in T_ENCDEC;
+  enc_started : in std_logic;
   enable_H_inputs : in T_ENABLE;
   enable_shuffle, realign : in T_ENABLE; 
   set_new_mask : in T_ENABLE; 
@@ -57,6 +58,7 @@ Architecture a_detect_code of detect_code is
 
 	signal s_data_out_parity : std_logic_vector(15 downto 0);
 	signal s_dfa_mode : T_DFA_MODE;
+	signal s_alarm : T_ENABLE;
 
 	-- signal blk_idx : std_logic_vector( NUMBER_OF_ROUNDS_INSTANCES*BLK_IDX_SZ-1 downto 0 );
 	signal wrd_idx : std_logic_vector( 7 downto 6 );
@@ -135,9 +137,32 @@ Architecture a_detect_code of detect_code is
 	---- OUTPUT BLOCK ------------------------------------------------------------
 	------------------------------------------------------------------------------
 	
-	alarm <= C_ENABLED when (s_dfa_mode = PARTIAL_RED and s_parity_data_in /= s_data_out_parity and realign=C_ENABLED)
-		else C_ENABLED when (s_dfa_mode = FULL_RED and s_parity_data_in /= s_data_out_parity and realign=C_ENABLED and data_in(BLID_HI downto BLID_LO) = "00")--enable_check = C_ENABLED)
-		else C_DISABLED;
+	--alarm <= C_ENABLED when (s_dfa_mode = PARTIAL_RED and s_parity_data_in /= s_data_out_parity and realign=C_ENABLED)
+	--	else C_ENABLED when (s_dfa_mode = FULL_RED and s_parity_data_in /= s_data_out_parity and realign=C_ENABLED and data_in(BLID_HI downto BLID_LO) = "00")--enable_check = C_ENABLED)
+	--	else C_DISABLED;
+
+	ALARM_PROC : process( clk )
+	begin
+		if ( clk'event and clk='1' ) then
+			if ( rst=RESET_ACTIVE ) then 
+				s_alarm <= C_DISABLED; 
+			elsif ( enc_started='1' ) then
+				s_alarm <= C_DISABLED; 
+			elsif ( enable_check=C_ENABLED ) then 
+				if ( s_data_out_parity/= s_parity_data_in ) then 
+					if (s_dfa_mode = FULL_RED and data_in(BLID_HI downto BLID_LO) = "00") then
+						s_alarm <= C_ENABLED; 
+					elsif (s_dfa_mode = PARTIAL_RED) then
+						s_alarm <= C_ENABLED;
+					else
+						s_alarm <= C_DISABLED;
+					end if;
+				end if; -- reordered_bus_1/=reordered_bus_2
+			end if; --  enc_started, enable_check
+		end if; -- clk
+	end process ALARM_PROC;
+
+	alarm <= s_alarm;
 
 	data_out <= s_data_out_parity;
 

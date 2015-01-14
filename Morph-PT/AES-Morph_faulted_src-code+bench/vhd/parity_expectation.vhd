@@ -387,6 +387,7 @@ Architecture a_parity_expectation of parity_expectation is
 					else  ( others=>'0' );
 
 	data_out <= s_pt_aligned when (realign = C_ENABLED and (s_dfa_mode = PARTIAL_RED or s_dfa_mode = FULL_RED))
+				else (mixcol_in_ptA & mixcol_in_ptB & mixcol_in_ptC & mixcol_in_ptD) when (enable_H_inputs = C_ENABLED and end_cipher = '1')
 				else (mixcol_out_ptA & mixcol_out_ptB & mixcol_out_ptC & mixcol_out_ptD);
 
 end a_parity_expectation;

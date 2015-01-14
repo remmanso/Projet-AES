@@ -182,6 +182,7 @@ architecture arch of aes_core is
 			data_in : in std_logic_vector( BLID_HI downto 0 ); 
 			key : in std_logic_vector( 127 downto 0 ); 
 			ctrl_dec : in T_ENCDEC;
+			enc_started : in std_logic;
 			enable_H_inputs : in T_ENABLE;
 			enable_shuffle, realign : in T_ENABLE; 
 			set_new_mask : in T_ENABLE; 
@@ -609,6 +610,7 @@ begin
   			data_in => s_data_in_detec,
 			key => s_round_key,
 			ctrl_dec => c_ctrl_dec,
+			enc_started => start_cipher_filtered,
 			enable_H_inputs => c_enable_H_inputs,
 			enable_shuffle => c_shuffle_cols,
 			realign => s_realign,
@@ -763,8 +765,8 @@ begin
 	data_out_ok <= '1' when ( c_data_out_ok=C_ENABLED ) else '0';
 	ready_out <= '1' when ( s_ready=C_RDY ) else '0';
 	--error_out <= '0' when ( s_alarm=C_DISABLED ) else '1';
-	error_out <= '1' when (s_dfa_mode = FULL_RED and c_data_out_ok = C_ENABLED and alarm_detect = C_DISABLED and s_alarm = C_ENABLED)
-		else 	'1' when (s_dfa_mode = PARTIAL_RED and c_data_out_ok = C_ENABLED and s_alarm = C_ENABLED) 
+	error_out <= '1' when (s_dfa_mode = FULL_RED  and alarm_detect = C_DISABLED and s_alarm = C_ENABLED)
+		else 	'1' when (s_dfa_mode = PARTIAL_RED  and s_alarm = C_ENABLED) 
 		else 	'0';
 
 	--ERROR_PROC : process(s_dfa_mode, c_data_out_ok, alarm_detect, s_alarm)
