@@ -98,6 +98,7 @@ entity user_logic is
   (
     -- ADD USER PORTS BELOW THIS LINE ------------------
     --USER ports added here
+    Clk_AES                        : in std_logic;
     -- ADD USER PORTS ABOVE THIS LINE ------------------
 
     -- DO NOT EDIT BELOW THIS LINE ---------------------
@@ -154,8 +155,10 @@ architecture IMP of user_logic is
   signal s_data_out_ok, s_ready_out, s_error_out : std_logic;
   signal s_flag : integer range 0 to 100;
   signal s_rndms_in : std_logic_vector(5 downto 0);
+  signal s_rst_aes : std_logic;
+  signal s_end_init : std_logic;
 
-	type T_STATE is (IDLE, RESET_ACTIVE, INIT);
+	type T_STATE is (IDLE, RESET_ACTIVE, INIT, WAIT_STATUS, LOAD_KEY, WAIT_FOR_KEY, END_INIT);
 	signal state : T_STATE;
   ------------------------------------------
   -- Signals for user logic slave model s/w accessible register example
@@ -186,28 +189,55 @@ architecture IMP of user_logic is
 begin
 
   --USER logic implementation added here
+  s_rst_aes <= not Bus2IP_Reset;
 
-	FSM_PROC : process( Bus2IP_Clk ) 
+	FSM_PROC : process( Clk_AES ) 
+  variable counter : integer range 0 to 30;
 	begin
-		if ( Bus2IP_Clk'event and Bus2IP_Clk='1' ) then
+		if ( Clk_AES'event and Clk_AES='1' ) then
 			if ( Bus2IP_Reset='1' ) then 
 				state <= RESET_ACTIVE;
+        counter := 0;
+        s_end_init <= '0';
 			else
 				case state is
 					when INIT => 
-						s_key_loaded <= X"2b7e151628aed2a6abf7158809cf4f3c";
-						s_load_key <= '1';
+            s_key_loaded <= X"000102030405060708090a0b0c0d0e0f";
 						s_rndms_in <= "111111";
+            counter := 0;
 						state <= IDLE;
 					when IDLE => 
 						s_key_loaded <= (others => '0');
 						s_load_key <= '0';
 						s_rndms_in <= "000000";
+            if (s_ready_out = '1') then
+              state <= WAIT_FOR_KEY;
+            end if;
 					when RESET_ACTIVE =>
 						s_key_loaded <= (others => '0');
 						s_load_key <= '0';
 						s_rndms_in <= "000000";
-						state <= INIT;
+						state <= WAIT_STATUS;
+          when WAIT_STATUS =>
+            if (counter = 6) then
+              state <= INIT;
+            else 
+              counter := counter + 1;
+            end if;
+          when LOAD_KEY =>
+            s_key_loaded <= X"2b7e151628aed2a6abf7158809cf4f3c";
+            s_load_key <= '1';
+            state <= END_INIT;
+          when WAIT_FOR_KEY =>
+            if (counter = 29) then
+              state <= LOAD_KEY;
+            else 
+              counter := counter + 1;
+            end if;
+          when END_INIT =>
+            s_key_loaded <= (others => '0');
+            s_load_key <= '0';
+            s_end_init <= '1';
 					when others => null;
 				end case;
 			end if;
@@ -215,9 +245,9 @@ begin
 	end process FSM_PROC;
 
 
-  FLAG_PROC : process (Bus2IP_Clk, Bus2IP_Reset)
+  FLAG_PROC : process (Clk_AES, Bus2IP_Reset)
   begin
-    if (Bus2IP_Clk ='1' and Bus2IP_Clk'event) then
+    if (Clk_AES ='1' and Clk_AES'event) then
       if (Bus2IP_Reset ='1') then
         s_flag <= 0;
       elsif (slv_reg0(C_SLV_DWIDTH-1) = '0') then
@@ -230,27 +260,35 @@ begin
     end if;
   end process FLAG_PROC;
         
-  s_start_cipher <= '1' when (s_flag = 1) else '0';
-  s_data_in <= slv_reg9 & slv_reg8 & slv_reg7 & slv_reg6 when (s_flag = 1) else (others => '0');
+  s_start_cipher <= '1' when (s_flag = 1 and s_end_init = '1') else '0';
   
-  s_enable_full_red <= slv_reg1(1) when (s_ready_out = '1' and Bus2IP_Reset = '0') 
+  s_data_in <= slv_reg9 & slv_reg8 & slv_reg7 & slv_reg6 when (s_flag = 1 and s_end_init = '1') 
+    else  X"00112233445566778899aabbccddeeff" when (state = INIT)
+    else (others => '0');
+  
+  s_enable_full_red <= slv_reg1(1) when (s_ready_out = '1' and s_end_init = '1' and Bus2IP_Reset = '0') 
     else '0' when (Bus2IP_Reset = '1')
     else s_enable_full_red;
 
-  s_enable_partial_red <= slv_reg1(2) when (s_ready_out = '1' and Bus2IP_Reset = '0') 
+  s_enable_partial_red <= slv_reg1(2) when (s_ready_out = '1' and s_end_init = '1' and Bus2IP_Reset = '0') 
     else '0' when (Bus2IP_Reset = '1')
     else s_enable_partial_red;
 
-  s_enable_detect_code <= slv_reg1(3) when (s_ready_out = '1' and Bus2IP_Reset = '0') 
+  s_enable_detect_code <= slv_reg1(3) when (s_ready_out = '1' and s_end_init = '1' and Bus2IP_Reset = '0') 
     else '0' when (Bus2IP_Reset = '1')
     else s_enable_detect_code;
+--
+--s_enable_full_red <= '0' when (s_end_init = '1') else slv_reg1(1);
+--s_enable_partial_red <= '0' when (s_end_init = '1') else slv_reg1(2);
+--s_enable_detect_code <= '0' when (s_end_init = '1') else slv_reg1(3); 
+--
 
-  s_enable_fault <= slv_reg1(0) when (s_ready_out = '0')
+  s_enable_fault <= slv_reg1(0) when (s_ready_out = '1' and s_end_init = '1')
     else '0';
 
   I_AES : aes_core port map (
-    clk  => Bus2IP_Clk,
-    rst => Bus2IP_Reset,
+    clk  => Clk_AES, -- Bus2IP_Clk,
+    rst => s_rst_aes,
     start_cipher  => s_start_cipher,
     load_key => s_load_key,
     enable_fault => s_enable_fault,
@@ -266,9 +304,9 @@ begin
     ready_out => s_ready_out
   );
 
-  PROC_OUT : process (Bus2IP_Clk, Bus2IP_Reset)
+  PROC_OUT : process (Clk_AES, Bus2IP_Reset)
   begin
-    if (Bus2IP_Clk = '1' and Bus2IP_Clk'event) then
+    if (Clk_AES = '1' and Clk_AES'event) then
       if (Bus2IP_Reset = '1') then
         slv_reg2 <= (others => '0');
         slv_reg3 <= (others => '0');
@@ -279,12 +317,16 @@ begin
         slv_reg13 <= (others => '0');
       elsif (s_data_out_ok = '1') then
         slv_reg2(C_SLV_DWIDTH-1) <= s_data_out_ok;
-        slv_reg3(C_SLV_DWIDTH-1) <= s_ready_out;
         slv_reg4(C_SLV_DWIDTH-1) <= s_error_out;
+        slv_reg3(C_SLV_DWIDTH-1) <= s_ready_out;
         slv_reg10 <= s_data_out(31 downto 0);
         slv_reg11 <= s_data_out(63 downto 32);
         slv_reg12 <= s_data_out(95 downto 64);
         slv_reg13 <= s_data_out(127 downto 96);
+      elsif (s_end_init = '0') then
+          slv_reg3(C_SLV_DWIDTH-1) <= '0';
+      else 
+          slv_reg3(C_SLV_DWIDTH-1) <= s_ready_out;
       end if;
     end if;
   end process PROC_OUT;
