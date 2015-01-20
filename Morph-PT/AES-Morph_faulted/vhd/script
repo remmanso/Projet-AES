@@ -1,0 +1,4 @@
+#rm -R lib_project
+vlib lib_aes_core
+vcom -work lib_aes_core ~/Documents/Projet_AES/Morph-PT/AES-Morph_faulted/vhd/params.vhd
+vcom -work lib_aes_core ~/Documents/Projet_AES/Morph-PT/AES-Morph_faulted/vhd/*.vhd
