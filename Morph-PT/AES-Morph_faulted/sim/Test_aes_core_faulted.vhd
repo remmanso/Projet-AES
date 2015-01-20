@@ -99,14 +99,14 @@ begin
 		s_enable_fault <= '0';
 		wait for 25*ckt;
     -- COUNTERMEASURE INIT (WITH RANDOM SEED)
-    --enc_datain <= edata2; 
-    --keyin  <= kdata2; 
+    enc_datain <= edata2; 
+    keyin  <= kdata2; 
     seed <= test_seed;
 		wait for ckt;
-	--	keyin  <= ( others=>'0' );
-	--	enc_datain <= ( others=>'0' );
+		keyin  <= ( others=>'0' );
+		enc_datain <= ( others=>'0' );
     seed <= "000000";
-	--	wait for 10*ckt;
+		wait for 10*ckt;
     -- WAIT PRNG INITIALIZATION
 		wait until rdy='1';
 		wait for 10*ckt;
@@ -120,10 +120,10 @@ begin
 		go_k <= '0';
 		keyin  <= ( others=>'0' ); 
 		wait for 10*ckt;
-	-- PARTIAL RED
+	-- FULL RED
     -- SEND PTX
-    	c_enable_partial_red <= '1';
-    	c_enable_full_red <= '0';
+    	c_enable_partial_red <= '0';
+    	c_enable_full_red <= '1';
 		goe <=  '1';
 		enc_datain <= edata; wait for ckt;
 		goe <=  '0';
