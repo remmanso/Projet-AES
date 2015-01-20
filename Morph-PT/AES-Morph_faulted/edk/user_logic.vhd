@@ -145,6 +145,7 @@ architecture IMP of user_logic is
     data_out : out std_logic_vector( 127 downto 0 ); 
     data_out_ok : out std_logic; 
     error_out : out std_logic; 
+    error_detector : out std_logic;
     ready_out : out std_logic -- 1 = AVAILABLE, 0 = BUSY
     ); -- rst active LOW, see aes_globals.vhd
   end component;
@@ -157,6 +158,7 @@ architecture IMP of user_logic is
   signal s_rndms_in : std_logic_vector(5 downto 0);
   signal s_rst_aes : std_logic;
   signal s_end_init : std_logic;
+  signal s_error_detector : std_logic;
 
 	type T_STATE is (IDLE, RESET_ACTIVE, INIT, WAIT_STATUS, LOAD_KEY, WAIT_FOR_KEY, END_INIT);
 	signal state : T_STATE;
@@ -195,16 +197,23 @@ begin
   variable counter : integer range 0 to 30;
 	begin
 		if ( Clk_AES'event and Clk_AES='1' ) then
+      s_data_in <= (others => '0');
+      s_start_cipher <= '0';
 			if ( Bus2IP_Reset='1' ) then 
 				state <= RESET_ACTIVE;
         counter := 0;
         s_end_init <= '0';
+        s_enable_full_red <= '0';
+        s_enable_partial_red <= '0';
+        s_enable_detect_code <= '0';
+        s_enable_fault <= '0';
 			else
 				case state is
 					when INIT => 
             s_key_loaded <= X"000102030405060708090a0b0c0d0e0f";
 						s_rndms_in <= "111111";
             counter := 0;
+            s_data_in <= X"00112233445566778899aabbccddeeff"
 						state <= IDLE;
 					when IDLE => 
 						s_key_loaded <= (others => '0');
@@ -238,6 +247,16 @@ begin
             s_key_loaded <= (others => '0');
             s_load_key <= '0';
             s_end_init <= '1';
+            if (s_flag = 1) then
+              s_start_cipher <= '1';
+              s_data_in <= slv_reg9 & slv_reg8 & slv_reg7 & slv_reg6;
+            end if;
+            if (s_ready_out = '1') then 
+              s_enable_full_red <= slv_reg1(1);
+              s_enable_partial_red <= slv_reg1(2);
+              s_enable_detect_code <= slv_reg1(3);
+              s_enable_fault <= slv_reg1(0);
+            end if;
 					when others => null;
 				end case;
 			end if;
@@ -260,31 +279,31 @@ begin
     end if;
   end process FLAG_PROC;
         
-  s_start_cipher <= '1' when (s_flag = 1 and s_end_init = '1') else '0';
-  
-  s_data_in <= slv_reg9 & slv_reg8 & slv_reg7 & slv_reg6 when (s_flag = 1 and s_end_init = '1') 
-    else  X"00112233445566778899aabbccddeeff" when (state = INIT)
-    else (others => '0');
-  
-  s_enable_full_red <= slv_reg1(1) when (s_ready_out = '1' and s_end_init = '1' and Bus2IP_Reset = '0') 
-    else '0' when (Bus2IP_Reset = '1')
-    else s_enable_full_red;
-
-  s_enable_partial_red <= slv_reg1(2) when (s_ready_out = '1' and s_end_init = '1' and Bus2IP_Reset = '0') 
-    else '0' when (Bus2IP_Reset = '1')
-    else s_enable_partial_red;
-
-  s_enable_detect_code <= slv_reg1(3) when (s_ready_out = '1' and s_end_init = '1' and Bus2IP_Reset = '0') 
-    else '0' when (Bus2IP_Reset = '1')
-    else s_enable_detect_code;
+  --s_start_cipher <= '1' when (s_flag = 1 and s_end_init = '1') else '0';
+  --
+  --s_data_in <= slv_reg9 & slv_reg8 & slv_reg7 & slv_reg6 when (s_flag = 1 and s_end_init = '1') 
+  --  else  X"00112233445566778899aabbccddeeff" when (state = INIT)
+  --  else (others => '0');
+  --
+  --s_enable_full_red <= slv_reg1(1) when (s_ready_out = '1' and s_end_init = '1' and Bus2IP_Reset = '0') 
+  --  else '0' when (Bus2IP_Reset = '1')
+  --  else s_enable_full_red;
+--
+--  --s_enable_partial_red <= slv_reg1(2) when (s_ready_out = '1' and s_end_init = '1' and Bus2IP_Reset = '0') 
+--  --  else '0' when (Bus2IP_Reset = '1')
+--  --  else s_enable_partial_red;
+--
+--  --s_enable_detect_code <= slv_reg1(3) when (s_ready_out = '1' and s_end_init = '1' and Bus2IP_Reset = '0') 
+--  --  else '0' when (Bus2IP_Reset = '1')
+  --  else s_enable_detect_code;
 --
 --s_enable_full_red <= '0' when (s_end_init = '1') else slv_reg1(1);
 --s_enable_partial_red <= '0' when (s_end_init = '1') else slv_reg1(2);
 --s_enable_detect_code <= '0' when (s_end_init = '1') else slv_reg1(3); 
 --
 
-  s_enable_fault <= slv_reg1(0) when (s_ready_out = '1' and s_end_init = '1')
-    else '0';
+  --s_enable_fault <= slv_reg1(0) when (s_ready_out = '1' and s_end_init = '1')
+  --  else '0';
 
   I_AES : aes_core port map (
     clk  => Clk_AES, -- Bus2IP_Clk,
@@ -301,6 +320,7 @@ begin
     data_out => s_data_out,
     data_out_ok => s_data_out_ok,
     error_out => s_error_out,
+    error_detector => s_error_detector,
     ready_out => s_ready_out
   );
 
@@ -318,6 +338,7 @@ begin
       elsif (s_data_out_ok = '1') then
         slv_reg2(C_SLV_DWIDTH-1) <= s_data_out_ok;
         slv_reg4(C_SLV_DWIDTH-1) <= s_error_out;
+        slv_reg4(C_SLV_DWIDTH-2) <= s_error_detector;
         slv_reg3(C_SLV_DWIDTH-1) <= s_ready_out;
         slv_reg10 <= s_data_out(31 downto 0);
         slv_reg11 <= s_data_out(63 downto 32);
