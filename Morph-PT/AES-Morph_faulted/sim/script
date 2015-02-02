@@ -1,0 +1,3 @@
+#rm -R lib_Project_Bench
+vlib lib_test_aes_core_faulted
+vcom -work lib_test_aes_core_faulted ~/Documents/Projet_AES/Morph-PT/AES-Morph_faulted/sim/Test_aes_core_faulted.vhd

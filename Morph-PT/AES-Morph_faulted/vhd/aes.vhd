@@ -15,17 +15,20 @@ entity aes_core is
 	port (
 		clk, rst : in std_logic;
 		start_cipher, load_key : in std_logic; -- active HIGH 
+		enable_fault : in std_logic;
 		data_in : in std_logic_vector( DATA_SIZE-1 downto 0 ); 
 		input_key : in std_logic_vector( 127 downto 0 ); 
 		-- enc_mode : in std_logic; -- 0 = ENCRYPTION, 1 = DECRYPTION
     
 		rndms_in : in std_logic_vector( 5 downto 0 ); 
     enable_full_red : in std_logic; 
-    enable_partial_red : in std_logic; 
+    enable_partial_red : in std_logic;
+    enable_detect_code : in std_logic; 
     
 		data_out : out std_logic_vector( DATA_SIZE-1 downto 0 ); 
 		data_out_ok : out std_logic; 
 		error_out : out std_logic; 
+		error_detector : out std_logic;
 		ready_out : out std_logic -- 1 = AVAILABLE, 0 = BUSY
 		); -- rst active LOW, see aes_globals.vhd
 	end aes_core;
@@ -53,6 +56,7 @@ architecture arch of aes_core is
   		data_in : in std_logic_vector( BLID_HI downto 0 ); 
   		key : in std_logic_vector( 127 downto 0 ); 
   		ctrl_dec : in T_ENCDEC;
+  		enable_fault : in std_logic;
   		enable_H_inputs : in T_ENABLE;
   		enable_shuffle, realign : in T_ENABLE; 
 			set_new_mask : in T_ENABLE; 
@@ -63,6 +67,7 @@ architecture arch of aes_core is
 			dyn_sbmap : in std_logic_vector( 2 downto 0 ); 
 			lin_mask  : in std_logic_vector( 31 downto 0 ); 
   		data_out : out std_logic_vector( BLK_IDX_SZ + COL_IDX_SZ + MASK_SIZE + DATA_SIZE-1 downto 0 );
+  		col_reloc_out : out std_logic_vector(1 downto 0);
   		clk, rst : in std_logic );
   	end component;
   component keyunit 
@@ -84,7 +89,7 @@ architecture arch of aes_core is
 			-- Data path management
 			enable_H_inputs, 
 			enable_shuffle_cols, enable_shuffle_blks, 
-      next_live_regs, 
+      next_live_regs, enable_first_input, 
 			realign, freeze_bus,
 			enable_mc, enable_mc_in, enable_key : out T_ENABLE;
 			-- Key management 
@@ -174,6 +179,30 @@ architecture arch of aes_core is
 			alarm : out T_ENABLE
 			);
 		end component;
+	component detect_code
+		port(
+			data_in : in std_logic_vector( BLID_HI downto 0 ); 
+			key : in std_logic_vector( 127 downto 0 ); 
+			ctrl_dec : in T_ENCDEC;
+			enc_started : in std_logic;
+			enable_H_inputs : in T_ENABLE;
+			enable_shuffle, realign : in T_ENABLE; 
+			set_new_mask : in T_ENABLE; 
+			enable_mc  : in T_ENABLE;
+			enable_key : in T_ENABLE;
+			start_cipher : in std_logic;
+			dfa_mode : in T_DFA_MODE;
+			enable_check : in T_ENABLE;
+			enable_detect_code : in std_logic;
+			-- rnd_seed_in  : in std_logic_vector( 13 downto 0 );
+			col_reloc : in std_logic_vector( BLK_IDX_SZ-1 downto 0 ); 
+			dyn_sbmap : in std_logic_vector( 2 downto 0 ); 
+			lin_mask  : in std_logic_vector( MASK_SIZE-1 downto 0 ); 
+			data_out : out std_logic_vector( 15 downto 0 );
+			clk, rst : in std_logic ;
+			alarm : out T_ENABLE
+			);
+		end component;
   -- Input filtering
 	signal start_cipher_filtered, start_cipher_delayed : std_logic;
 	signal data_in_filtered : std_logic_vector( DATA_SIZE-1 downto 0 );
@@ -200,6 +229,9 @@ architecture arch of aes_core is
 				 -- std_logic_vector( BLK_IDX_SZ + COL_IDX_SZ + MASK_SIZE + DATA_SIZE-1 downto 0 );
          std_logic_vector( BLID_HI downto 0 );
   signal s_data_bus, s_round_out : t_data_bus;
+  	type t_signal_bi  is array(1 to NUMBER_OF_ROUNDS) of
+  		std_logic_vector(1 downto 0);
+  	signal t_col_reloc_out : t_signal_bi;
 	type   t_bus_ctrls is array( 1 to NUMBER_OF_ROUNDS ) of std_logic_vector( 0 to NUMBER_OF_ROUNDS );
   signal bus_ctrls : t_bus_ctrls;
 	signal s_ctrl_bus : std_logic_vector( NUMBER_OF_ROUNDS*NUMBER_OF_ROUNDS-1 downto 0 );
@@ -211,22 +243,33 @@ architecture arch of aes_core is
 	signal c_ctrl_dec : T_ENCDEC;
   signal c_enable_H_inputs, c_ctrl_key, c_ctrl_mc, c_ctrl_mc_in, s_realign, s_freeze_bus,
 				 c_next_live_regs, c_shuffle_cols,  c_shuffle_blks, c_get_new_mask : T_ENABLE; 
+	signal s_enable_first_input : T_ENABLE;
 	signal c_save_key, c_advance_key, c_advance_rcon, c_rewind_key : T_ENABLE;
 	signal c_blk_out_index : std_logic_vector( LOG2_NUM_OF_ROUNDS-1 downto 0 );
   signal c_data_out_ok, c_data_out_ok_del : T_ENABLE;
 	signal c_enable_check : T_ENABLE;
   signal s_ready : T_READY;
+  	-- Detector code signals
+  	signal s_data_in_detec : std_logic_vector(BLID_HI downto 0);
+  	signal s_data_out_detec : std_logic_vector(15 downto 0);
+  	signal s_col_reloc_detec : std_logic_vector(BLK_IDX_SZ - 1 downto 0);
+  	signal alarm_detect : T_ENABLE;
+  	signal cpt_round : integer range 0 to 4;
+  	signal detect_in : std_logic_vector(BLID_HI downto 0);
+  	signal random_vect_fault : std_logic_vector(3 downto 0);
 	-- DFA redundancy
   signal s_dfa_mode : T_DFA_MODE;
   signal dfa_select, dfa_select_filtered : std_logic_vector( 1 downto 0 );
 	signal s_live_rounds_reg, s_prev_live_rounds_reg, s_next_live_rounds : std_logic_vector( 1 to NUMBER_OF_ROUNDS_INSTANCES );
-	signal s_dest_src_round_reg, s_avail_rounds : std_logic_vector( 1 to NUMBER_OF_ROUNDS_INSTANCES );
+	signal s_dest_src_round_reg, s_dest_round_reg_memory, s_avail_rounds : std_logic_vector( 1 to NUMBER_OF_ROUNDS_INSTANCES );
   signal s_src_round, s_src_round_reg, s_prev_src_round, s_dest_src_round : std_logic_vector( 1 to NUMBER_OF_ROUNDS_INSTANCES );
 	signal s_dest_round, s_dest_round_reg, s_prev_dest_round : std_logic_vector( 1 to NUMBER_OF_ROUNDS_INSTANCES );
 	signal s_1st_used, s_2nd_used, s_3rd_used : std_logic_vector( 1 to NUMBER_OF_ROUNDS_INSTANCES );
 	signal s_1st_avail, s_2nd_avail, s_3rd_avail : std_logic_vector( 1 to NUMBER_OF_ROUNDS_INSTANCES );
 	signal s_bus2check_1, s_bus2check_2 : std_logic_vector( BLID_HI downto 0 ); 
 	signal s_alarm : T_ENABLE;
+
+	signal s_enable_fault : std_logic_vector(NUMBER_OF_ROUNDS downto 1);
 begin
 	-- INPUT FILTERING ==========================================================
 	START_R : reg_B generic map( G_SIZE => 1 ) 
@@ -247,10 +290,18 @@ begin
 		if ( clk'event and clk='1' ) then 
 			if ( rst=RESET_ACTIVE ) then 
 				s_activ_counter <= '0';
+				random_vect_fault <= "0000";
 			elsif ( rndms_in(5)='1' ) then -- ( s_load_rndms='1' ) then 
 				s_activ_counter <= rndms_in(4) or rndms_in(3) or rndms_in(2) or rndms_in(1) or rndms_in(0);
-				end if; -- rst, load_key
-			end if; -- clk
+			end if; -- rst, load_key
+			if (rst /= RESET_ACTIVE) then
+				if (random_vect_fault = "0000" or random_vect_fault = "0001") then
+					random_vect_fault <= "1000";
+				else
+					random_vect_fault <= '0' & random_vect_fault(3 downto 1);
+				end if;
+			end if;
+		end if; -- clk
 		end process;
 	COUNTER_EN : enable_countermeasures port map(
 							 clk => clk, 
@@ -280,6 +331,7 @@ begin
 			enable_shuffle_cols => c_shuffle_cols, 
 			enable_shuffle_blks => c_shuffle_blks, 
       next_live_regs => c_next_live_regs,
+      		enable_first_input => s_enable_first_input,
 			realign => s_realign,
 			freeze_bus => s_freeze_bus,
 			enable_mc => c_ctrl_mc, 
@@ -351,12 +403,45 @@ begin
 										 port map( clk, rst, data_in_filtered, start_cipher_filtered, data_in_reg );
 										 
 	-- BUS INPUTS & ROUNDS ======================================================
+
+	--s_enable_fault <= "0001" when ( enable_fault = '1' and s_dfa_mode=PARTIAL_RED and s_dest_src_round_reg="1000" ) 
+	--		else "0010" when (enable_fault = '1' and s_dfa_mode=PARTIAL_RED and s_dest_src_round_reg="0100" ) 
+	--		else "0100" when (enable_fault = '1' and s_dfa_mode=PARTIAL_RED and s_dest_src_round_reg="0010" ) 
+	--		else "1000" when (enable_fault = '1' and s_dfa_mode=PARTIAL_RED and s_dest_src_round_reg="0001" ) 
+	--		else "0001" when (enable_fault = '1' and s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 1 )='1' 
+	--																	and s_round_out( 1 )( BLID_HI downto BLID_LO )=c_blk_out_index )
+	--		else "0010" when (enable_fault = '1' and s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 2 )='1' 
+	--																	and s_round_out( 2 )( BLID_HI downto BLID_LO )=c_blk_out_index )
+	--		else "0100" when (enable_fault = '1' and s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 3 )='1' 
+	--																	and s_round_out( 3 )( BLID_HI downto BLID_LO )=c_blk_out_index )
+	--		else "1000" when (enable_fault = '1' and s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 4 )='1' 
+	--																	and s_round_out( 4 )( BLID_HI downto BLID_LO )=c_blk_out_index )
+	--		else "0000";
+
+	--s_enable_fault <= "0001" when ( enable_fault = '1' and s_dfa_mode=PARTIAL_RED and s_dest_round_reg="1000" ) 
+	--		else "0010" when (enable_fault = '1' and s_dfa_mode=PARTIAL_RED and s_dest_round_reg="0100" ) 
+	--		else "0100" when (enable_fault = '1' and s_dfa_mode=PARTIAL_RED and s_dest_round_reg="0010" ) 
+	--		else "1000" when (enable_fault = '1' and s_dfa_mode=PARTIAL_RED and s_dest_round_reg="0001" ) 
+	--		else "0001" when (enable_fault = '1' and s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 1 )='0' 
+	--																	and s_round_out( 1 )( BLID_HI downto BLID_LO )=c_blk_out_index )
+	--		else "0010" when (enable_fault = '1' and s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 2 )='0' 
+	--																	and s_round_out( 2 )( BLID_HI downto BLID_LO )=c_blk_out_index )
+	--		else "0100" when (enable_fault = '1' and s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 3 )='0' 
+	--																	and s_round_out( 3 )( BLID_HI downto BLID_LO )=c_blk_out_index )
+	--		else "1000" when (enable_fault = '1' and s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 4 )='0' 
+	--																	and s_round_out( 4 )( BLID_HI downto BLID_LO )=c_blk_out_index )
+	--		else "0000";
+
+	s_enable_fault <= random_vect_fault when (enable_fault = '1')
+		else "0000";
+
 	bus_in <= blk_header & word_header & mask_header & data_in_reg; 
 	round_for : for I in 1 to 4 generate
 		ROUND_I : round port map(
   			data_in => s_data_bus( I ), 
   			key => s_round_key,
   			ctrl_dec => c_ctrl_dec, 
+  			enable_fault => s_enable_fault(I),
   			enable_H_inputs => c_enable_H_inputs,
   			enable_shuffle => c_shuffle_cols, 
 				realign => s_realign,
@@ -368,6 +453,7 @@ begin
 				dyn_sbmap => dyn_sbmap,
 				lin_mask  => lin_mask,
   			data_out => s_round_out( I ), 
+  			col_reloc_out => t_col_reloc_out(I),
   			clk => clk, 
 				rst => c_soft_rst );
 		end generate round_for;
@@ -473,6 +559,80 @@ begin
 			enable_check => c_enable_check,
 			alarm => s_alarm
 			);
+
+
+  -- Detector code ==============================================================
+
+  		cpt_round <= 1 when (s_dfa_mode=PARTIAL_RED and s_dest_src_round_reg = "1000" and s_round_out(1)(BLID_HI downto BLID_LO) = "00")
+  			else 	2 when (s_dfa_mode=PARTIAL_RED and s_dest_src_round_reg = "0100" and s_round_out(2)(BLID_HI downto BLID_LO) = "00")
+  			else 	3 when (s_dfa_mode=PARTIAL_RED and s_dest_src_round_reg = "0010" and s_round_out(3)(BLID_HI downto BLID_LO) = "00")
+  			else 	4 when (s_dfa_mode=PARTIAL_RED and s_dest_src_round_reg = "0001" and s_round_out(4)(BLID_HI downto BLID_LO) = "00")
+  			else 	1 when (s_dfa_mode=PARTIAL_RED and s_round_out(1)(BLID_HI downto BLID_LO) = "00")
+  			else 	2 when (s_dfa_mode=PARTIAL_RED and s_round_out(2)(BLID_HI downto BLID_LO) = "00")
+  			else 	3 when (s_dfa_mode=PARTIAL_RED and s_round_out(3)(BLID_HI downto BLID_LO) = "00")
+  			else 	4 when (s_dfa_mode=PARTIAL_RED and s_round_out(4)(BLID_HI downto BLID_LO) = "00")
+  			else 	1 when (s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 1 )='0'
+						and s_round_out( 1 )( BLID_HI downto BLID_LO )=c_blk_out_index )
+			else 	2 when (s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 2 )='0'
+						and s_round_out( 2 )( BLID_HI downto BLID_LO )=c_blk_out_index )
+			else 	3 when (s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 3 )='0'
+						and s_round_out( 3 )( BLID_HI downto BLID_LO )=c_blk_out_index )
+			else 	4  when (s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 4 )='0'
+						and s_round_out( 4 )( BLID_HI downto BLID_LO )=c_blk_out_index )
+  			else 0;
+  					
+  		s_data_in_detec <= 	bus_in when (s_enable_first_input = C_ENABLED and bus_in(BLID_HI downto BLID_LO) = "00")
+  					else 	detect_in when (s_enable_first_input = C_ENABLED)
+  					else 	s_round_out(cpt_round) when ((s_dfa_mode=PARTIAL_RED or s_dfa_mode = FULL_RED) and c_enable_H_inputs = C_ENABLED and cpt_round /= 0)
+  					else 	s_round_out(cpt_round) when ((s_dfa_mode=PARTIAL_RED or s_dfa_mode = FULL_RED) and c_ctrl_mc_in = C_ENABLED and cpt_round /= 0)
+  					else (others => '0');
+
+  		INIT_DETECT_PROC : process(clk, rst)
+  		begin
+  		if (rst = RESET_ACTIVE) then
+  			detect_in <= x"F0000000000000000000000000000000000000000";
+  		elsif (clk='1' and clk'event) then
+  			if (s_enable_first_input = C_ENABLED) then
+  				if (detect_in(BLID_HI downto BLID_LO) = "00") then
+  					detect_in <= detect_in;
+  				else 
+  					detect_in <= bus_in;
+  				end if;
+  			else
+  				detect_in <= x"F0000000000000000000000000000000000000000";
+  			end if;
+  		end if;
+  		end process INIT_DETECT_PROC;
+  			
+
+ 		s_col_reloc_detec <= 	t_col_reloc_out(cpt_round) when ((s_dfa_mode = PARTIAL_RED or s_dfa_mode = FULL_RED) and cpt_round /= 0) 
+ 			else (others => '0');
+
+ 		
+ DETECTOR_CODE : detect_code port map (
+  			data_in => s_data_in_detec,
+			key => s_round_key,
+			ctrl_dec => c_ctrl_dec,
+			enc_started => start_cipher_filtered,
+			enable_H_inputs => c_enable_H_inputs,
+			enable_shuffle => c_shuffle_cols,
+			realign => s_realign,
+			set_new_mask => c_get_new_mask,
+			enable_mc => c_ctrl_mc,
+			enable_key => c_ctrl_key,
+			start_cipher => start_cipher_filtered,
+			dfa_mode => s_dfa_mode,
+			enable_check => c_enable_check,
+			enable_detect_code => enable_detect_code,
+			-- rnd_seed_in  : in std_logic_vector( 13 downto 0 );
+			col_reloc => s_col_reloc_detec,
+			dyn_sbmap => dyn_sbmap,
+			lin_mask => lin_mask,
+			data_out => s_data_out_detec,
+			clk => clk, 
+			rst => rst,
+			alarm => alarm_detect
+ 			);
 	
 	-- BUS CONTROL ==============================================================
 	-- Reloc_Table : Round_Reloc_Table port map( col_reloc( 4 downto 0 ), s_ctrl_bus );
@@ -608,6 +768,23 @@ begin
   data_out <= masked_data_out xor ExpandMask( mask_out );
 	data_out_ok <= '1' when ( c_data_out_ok=C_ENABLED ) else '0';
 	ready_out <= '1' when ( s_ready=C_RDY ) else '0';
-	error_out <= '0' when ( s_alarm=C_DISABLED ) else '1';
+	--error_out <= '0' when ( s_alarm=C_DISABLED ) else '1';
+	error_out <= '1' when (s_dfa_mode = FULL_RED  and alarm_detect = C_DISABLED and s_alarm = C_ENABLED)
+		else 	'1' when (s_dfa_mode = PARTIAL_RED  and s_alarm = C_ENABLED) 
+		else 	'0';
+
+	error_detector <= '1' when (alarm_detect = C_ENABLED) else '0';
+	--ERROR_PROC : process(s_dfa_mode, c_data_out_ok, alarm_detect, s_alarm)
+	--begin
+	-- error_out <= '0';
+	-- if (s_alarm = C_ENABLED and c_data_out_ok = C_ENABLED) then
+	--  if (s_dfa_mode = FULL_RED and alarm_detect = C_DISABLED) then
+    --    error_out <= '1';
+	-- end if;
+	--  if ( s_dfa_mode = PARTIAL_RED) then
+	--	error_out <= '1';
+	-- end if;
+	--end if;
+	--end process;
 
   end arch;

@@ -48,6 +48,7 @@ architecture arch of AES_ANR_B is
       data_out : out std_logic_vector( DATA_SIZE-1 downto 0 ); 
       data_out_ok : out std_logic; 
       error_out : out std_logic; 
+      error_detector : out std_logic;
       ready_out : out std_logic -- 1 = AVAILABLE, 0 = BUSY
       ); -- rst active LOW, see aes_globals.vhd
     end component;
@@ -76,6 +77,7 @@ architecture arch of AES_ANR_B is
   signal aes_data_out_ok : std_logic; 
   signal aes_core_ready_out : std_logic;
   signal aes_core_error : std_logic;
+  signal s_error_detector : std_logic;
 begin
   s_sel_laser <= CONFIGREG( 0 );
   init_countermeasures <= spare_r( 2 ); -- SPAREIN( 2 ); 
@@ -192,6 +194,7 @@ begin
                         data_out => aes_core_data_outH,
                         data_out_ok => aes_data_out_ok,
                         error_out => aes_core_error,
+                        error_detector => s_error_detector,
                         ready_out => aes_core_ready_out -- 1 = AVAILABLE, 0 = BUSY
                         );
   

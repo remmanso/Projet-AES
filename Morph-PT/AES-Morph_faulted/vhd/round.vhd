@@ -10,6 +10,7 @@ entity round is port (
   data_in : in std_logic_vector( BLID_HI downto 0 ); 
   key : in std_logic_vector( 127 downto 0 ); 
   ctrl_dec : in T_ENCDEC;
+  enable_fault : in std_logic;
   enable_H_inputs : in T_ENABLE;
   enable_shuffle, realign : in T_ENABLE; 
 	set_new_mask : in T_ENABLE; 
@@ -19,8 +20,9 @@ entity round is port (
   -- rnd_seed_in  : in std_logic_vector( 13 downto 0 );
 	col_reloc : in std_logic_vector( BLK_IDX_SZ-1 downto 0 ); 
 	dyn_sbmap : in std_logic_vector( 2 downto 0 ); 
-	lin_mask  : in std_logic_vector( MASK_SIZE-1 downto 0 ); 
+	lin_mask  : in std_logic_vector( MASK_SIZE-1 downto 0 );
   data_out : out std_logic_vector( BLID_HI downto 0 );
+  col_reloc_out : out std_logic_vector(BLK_IDX_SZ - 1 downto 0);
   clk, rst : in std_logic );
   end round;
 
@@ -106,6 +108,9 @@ architecture arch of round is
   signal s_aligned_data : std_logic_vector( MASK_HI downto 0 );
 	signal s_mcoff_data : std_logic_vector( CLID_HI downto 0 );
   signal s_mix_col_bus_in : std_logic_vector( BLID_HI downto 0 );
+
+  signal bloc_faulted : std_logic_vector(31 downto 0);
+
 begin
   ------------------------------------------------------------------------------
   ---- INPUT BLOCK -------------------------------------------------------------
@@ -226,7 +231,8 @@ begin
   ---- SHUFFLER BLOCK ----------------------------------------------------------
   ------------------------------------------------------------------------------
   -- shuffler_in <= outA3 & outB3 & outC3 & outD3;
-	shuffler_in_masked <= outA3 & outB3 & outC3 & outD3;
+  bloc_faulted <=  outA3 & outB3 & outC3 & outD3 xor (x"00080000");
+	shuffler_in_masked <= bloc_faulted when (enable_fault = '1') else outA3 & outB3 & outC3 & outD3;
 	shuffler_in <= shuffler_in_masked xor old_mask_reg;
 
   -- RELOC REG -----------------------------------------------------------------
@@ -250,6 +256,7 @@ begin
         end if; -- go_shuffle
       end if; -- rst, clk
     end process RELOC_PROC;
+    col_reloc_out <= s_reloc_reg;
   
   t_dataout <= shuffler_in when ( s_reloc_reg(0) = '0' ) else
                shuffler_in( 23 downto 0 ) & shuffler_in( 31 downto 24 );
@@ -292,6 +299,7 @@ begin
   ------------------------------------------------------------------------------
   ---- MIXCOLUMNS BLOCK --------------------------------------------------------
   ------------------------------------------------------------------------------
+  
   column_A <= outA0 & outA1 & outA2 & outA3;
   column_B <= outB0 & outB1 & outB2 & outB3;
   column_C <= outC0 & outC1 & outC2 & outC3;
@@ -301,6 +309,8 @@ begin
   MC_COLUMN_B : MC_col port map( mixcol_in(  95 downto 64 ), ctrl_dec, mixcol_out(  95 downto 64 ) );
   MC_COLUMN_C : MC_col port map( mixcol_in(  63 downto 32 ), ctrl_dec, mixcol_out(  63 downto 32 ) );
   MC_COLUMN_D : MC_col port map( mixcol_in(  31 downto  0 ), ctrl_dec, mixcol_out(  31 downto  0 ) );
+
+
   ------------------------------------------------------------------------------
   ------------------------------------------------------------------------------
 	
@@ -310,7 +320,7 @@ begin
   ------------------------------------------------------------------------------
 
 	-- BLK_IDX_SZ + COL_IDX_SZ + MASK_SIZE + DATA_SIZE
-  s_mix_col_bus_in <= x"F00000000" & 
+  s_mix_col_bus_in <= s_blk_idx_out & "00" & x"00000000" & 
                       sbox_reg_out(31 downto 24) & outA0 & outA1 & outA2 &
                       sbox_reg_out(23 downto 16) & outB0 & outB1 & outB2 &
                       sbox_reg_out(15 downto 8) & outC0 & outC1 & outC2 &

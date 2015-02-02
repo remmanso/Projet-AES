@@ -12,7 +12,7 @@ entity Control is port (
 	load_rnds, activ_rnds, valid_rnds : in std_logic;
 	-- Data path management
 	enable_H_inputs, enable_shuffle_cols, enable_shuffle_blks, 
-  next_live_regs,
+  next_live_regs, enable_first_input,
 	realign, freeze_bus, enable_mc, enable_mc_in, enable_key : out T_ENABLE;
 	-- Key management 
   save_key, advance_key, advance_rcon, rewind_key : out T_ENABLE;
@@ -42,6 +42,7 @@ architecture arch of Control is
 	signal s_ready : T_READY;
 	signal s_first_H_xfer, s_enable_H_inputs, s_enable_mc, s_enable_mc_in, s_enable_key : T_ENABLE;
 	signal s_enable_shuffle_cols, s_enable_shuffle_blks, s_realign, s_freeze_bus : T_ENABLE;
+	signal s_enable_first_input : T_ENABLE;
 	signal s_save_key, s_advance_key, s_advance_rcon, s_rewind_key, s_data_out_ok : T_ENABLE;
 	signal s_next_live_regs, s_enable_check : T_ENABLE;
 	-- Block management 
@@ -145,7 +146,8 @@ begin
 			end if;
 		end process BLK_OUT_CNT_PROC;
 
-	s_enable_H_inputs <= C_ENABLED when ( state=ENC_HORIZ or state=LOADING_DATA or state=OUTPUT or state=PRECHARGE ) else C_DISABLED; 
+	s_enable_H_inputs <= C_ENABLED when ( state=ENC_HORIZ or state=LOADING_DATA or state=OUTPUT or state=PRECHARGE ) else C_DISABLED;
+	s_enable_first_input <= C_ENABLED when ((state = ENC_HORIZ or state=LOADING_DATA) and round = 10) else C_DISABLED; 
   s_enable_shuffle_cols <= C_ENABLED when ( state=LOADING_DATA ) or 
                                           ( state=ENC_VERT and enc_sub_state=5 ) 
                       else C_DISABLED;
@@ -172,6 +174,7 @@ begin
 	s_data_out_ok <= C_ENABLED when ( state=OUTPUT ) else C_DISABLED;
 
 	-- OUTPUT CONTROLS
+	enable_first_input <= s_enable_first_input;
 	enable_H_inputs <= s_enable_H_inputs;
 	enable_shuffle_cols <= s_enable_shuffle_cols;
 	enable_shuffle_blks <= s_enable_shuffle_blks;

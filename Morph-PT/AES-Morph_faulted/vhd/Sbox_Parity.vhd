@@ -19,7 +19,7 @@
 library IEEE;
     use IEEE.std_logic_1164.all;
 library WORK;
-    use WORK.aes_pt_params.all;
+  use WORK.params.all;
 
 entity sbox_parity is port(
     sbox_in : in std_logic_vector(7 downto 0);
@@ -309,7 +309,7 @@ begin
         end case;
         end process;
 
-    parity_bit_sched <= parity_bit_sched_cod when (ctrl_dec = S_ENC) else parity_bit_sched_dec;
+    parity_bit_sched <= parity_bit_sched_cod when (ctrl_dec = C_ENC) else parity_bit_sched_dec;
     error <= parity_bit_sched;
 
 end a_sbox_parity;
