@@ -1,6 +1,4 @@
-Morph-PT/AES-Morph_src-code+bench/libs
-Morph-PT/AES-Morph_src-code+bench/*.wlf
-Morph-PT/AES-Morph_src-code+bench/transcript
+.DS_Store
 Morph-PT/AES-Morph_faulted/transcript
 Morph-PT/AES-Morph_faulted/libs/lib*
 Morph-PT/AES-Morph_faulted/synth/*
