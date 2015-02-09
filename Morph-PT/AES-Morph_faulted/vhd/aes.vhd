@@ -257,6 +257,11 @@ architecture arch of aes_core is
   	signal cpt_round : integer range 0 to 4;
   	signal detect_in : std_logic_vector(BLID_HI downto 0);
   	signal random_vect_fault : std_logic_vector(3 downto 0);
+  	signal vect_temp : std_logic_vector(31 downto 0);
+  	signal xn : integer;
+  	signal cpt : integer range 0 to 3;
+  	constant a : integer := 1140671485;
+  	constant c : integer := 12820163;
 	-- DFA redundancy
   signal s_dfa_mode : T_DFA_MODE;
   signal dfa_select, dfa_select_filtered : std_logic_vector( 1 downto 0 );
@@ -290,17 +295,9 @@ begin
 		if ( clk'event and clk='1' ) then 
 			if ( rst=RESET_ACTIVE ) then 
 				s_activ_counter <= '0';
-				random_vect_fault <= "0000";
 			elsif ( rndms_in(5)='1' ) then -- ( s_load_rndms='1' ) then 
 				s_activ_counter <= rndms_in(4) or rndms_in(3) or rndms_in(2) or rndms_in(1) or rndms_in(0);
 			end if; -- rst, load_key
-			if (rst /= RESET_ACTIVE) then
-				if (random_vect_fault = "0000" or random_vect_fault = "0001") then
-					random_vect_fault <= "1000";
-				else
-					random_vect_fault <= '0' & random_vect_fault(3 downto 1);
-				end if;
-			end if;
 		end if; -- clk
 		end process;
 	COUNTER_EN : enable_countermeasures port map(
@@ -431,6 +428,30 @@ begin
 	--		else "1000" when (enable_fault = '1' and s_dfa_mode=FULL_RED and s_prev_live_rounds_reg( 4 )='0' 
 	--																	and s_round_out( 4 )( BLID_HI downto BLID_LO )=c_blk_out_index )
 	--		else "0000";
+	random_generator : process (clk, rst)
+  	begin
+  		if (clk = '1' and clk'event) then
+  			if (rst = RESET_ACTIVE) then
+  				xn <= 1;
+  			else
+  				xn <= (a * xn + c) mod (16777216);
+  				vect_temp <= std_logic_vector(to_unsigned(xn, vect_temp'length));
+  				cpt <= TO_INTEGER(unsigned(vect_temp(18 downto 13))) mod 4;
+  				if (cpt < 0) then
+  					cpt <= - cpt;
+  				end if;
+  				if (cpt = 0) then
+  					random_vect_fault <= "0001";
+  				elsif (cpt = 1) then
+  					random_vect_fault <= "0010";
+  				elsif (cpt = 2) then
+  					random_vect_fault <= "0100";
+  				else
+  					random_vect_fault <= "1000";
+  				end if;
+  			end if;
+  		end if;
+  	end process;
 
 	s_enable_fault <= random_vect_fault when (enable_fault = '1')
 		else "0000";
